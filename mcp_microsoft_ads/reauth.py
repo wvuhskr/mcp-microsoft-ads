@@ -24,7 +24,7 @@ After a successful run: restart Claude Code so the MCP reloads the rotated token
 import argparse
 import json
 import secrets
-import subprocess
+import subprocess  # nosec B404
 import sys
 import urllib.error
 import urllib.parse
@@ -44,7 +44,8 @@ REDIRECT_URI = "http://localhost"
 # authorize needs openid/profile + offline_access (offline_access is what returns a
 # refresh token); the token/refresh calls use the bare manage scope.
 AUTHORIZE_SCOPE = "openid profile https://ads.microsoft.com/msads.manage offline_access"
-TOKEN_SCOPE = "https://ads.microsoft.com/msads.manage offline_access"
+# B105 false positive: an OAuth scope string, not a secret
+TOKEN_SCOPE = "https://ads.microsoft.com/msads.manage offline_access"  # nosec B105
 
 
 def _endpoint(tenant, kind):
@@ -91,7 +92,8 @@ def _post_token(tenant, data):
     req = urllib.request.Request(_endpoint(tenant, "token"), data=body,
                                  headers={"Content-Type": "application/x-www-form-urlencoded"})
     try:
-        with urllib.request.urlopen(req, timeout=30) as r:
+        # B310 false positive: _endpoint builds a constant https URL on login.microsoftonline.com
+        with urllib.request.urlopen(req, timeout=30) as r:  # nosec B310
             return json.loads(r.read().decode())
     except urllib.error.HTTPError as e:  # 400s carry the AADSTS reason in the body
         try:
@@ -101,24 +103,34 @@ def _post_token(tenant, data):
 
 
 def _selftest():
-    assert extract_code("http://localhost/?code=ABC123&state=x") == "ABC123"
-    assert extract_code("http://localhost/?state=x&code=A.B-C_D0") == "A.B-C_D0"
-    assert extract_code("  ABC123  ") is None  # bare code rejected, not just bare
-    assert extract_code("") is None
-    assert extract_code(None) is None
-    assert extract_code_and_state("http://localhost/?code=ABC123&state=st1") == ("ABC123", "st1")
-    assert extract_code_and_state("http://localhost/?code=ABC123") == ("ABC123", None)
-    assert extract_code_and_state("ABC123") == (None, None)
-    assert extract_code_and_state("") == (None, None)
-    assert authorize_url("cid", "common", "st").startswith(
-        "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?")
-    assert "prompt=login" in authorize_url("cid", None, "st")
+    # real checks, not asserts: asserts are stripped under `python -O`, which would
+    # turn this into a selftest that silently checks nothing (also bandit B101)
+    checks = [
+        (extract_code("http://localhost/?code=ABC123&state=x") == "ABC123", "code+state url"),
+        (extract_code("http://localhost/?state=x&code=A.B-C_D0") == "A.B-C_D0", "code charset"),
+        (extract_code("  ABC123  ") is None, "bare code rejected"),
+        (extract_code("") is None, "empty input"),
+        (extract_code(None) is None, "None input"),
+        (extract_code_and_state("http://localhost/?code=ABC123&state=st1") == ("ABC123", "st1"),
+         "code_and_state url"),
+        (extract_code_and_state("http://localhost/?code=ABC123") == ("ABC123", None), "missing state"),
+        (extract_code_and_state("ABC123") == (None, None), "bare code_and_state rejected"),
+        (extract_code_and_state("") == (None, None), "empty code_and_state"),
+        (authorize_url("cid", "common", "st").startswith(
+            "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?"), "authorize endpoint"),
+        ("prompt=login" in authorize_url("cid", None, "st"), "prompt=login present"),
+    ]
+    failed = [label for ok, label in checks if not ok]
+    if failed:
+        raise SystemExit(f"selftest FAIL: {', '.join(failed)}")
     print("selftest ok")
 
 
 def _redirect_from_clipboard():
     try:
-        return subprocess.run(["pbpaste"], capture_output=True, text=True, timeout=10).stdout
+        # B603/B607 false positives: constant argv, macOS clipboard read, no untrusted input
+        return subprocess.run(["pbpaste"], capture_output=True,  # nosec B603 B607
+                              text=True, timeout=10).stdout
     except (OSError, subprocess.SubprocessError):
         return ""
 
