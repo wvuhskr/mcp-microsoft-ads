@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+### Changed
+
+- Compatible with both mcp 1.x and 2.x (requirement widened to `mcp>=1.0,<3`;
+  mcp 2.0 renamed `FastMCP` to `MCPServer` — same tool surface, shimmed in
+  `app.py`). Suite passes on mcp 1.29.0 and 2.1.0.
+- Dependency floors: bingads 13.0.29, pyyaml>=6.0.3, bandit>=1.9.4,
+  setuptools>=84; gitleaks-action v3.0.0 in CI; Dependabot bumps.
+
 ## [1.0.1] - 2026-08-24
 
 ### Fixed
