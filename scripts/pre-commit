@@ -1,0 +1,47 @@
+#!/bin/sh
+# mcp-microsoft-ads pre-commit gate: block secrets from entering history.
+# Installed by scripts/install-hooks.sh (symlinked to .git/hooks/pre-commit).
+#
+# Why secrets first: this repo talks to the Microsoft Ads API, so a developer
+# token, client secret, or refresh token is one careless `git add` away from
+# being permanent. Scrubbing history costs orders of magnitude more than this
+# check. Lint (ruff, configured in pyproject [tool.ruff]) runs second.
+
+# Git hooks get a minimal PATH; gitleaks is brew-installed.
+PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
+export PATH
+
+if command -v gitleaks >/dev/null 2>&1; then
+  if ! gitleaks git --staged --no-banner --redact .; then
+    echo "" >&2
+    echo "pre-commit: gitleaks found a secret in staged changes — commit blocked." >&2
+    echo "  Move the value to an env var or an ignored file; do not commit it." >&2
+    echo "  Genuine false positive? inline 'gitleaks:allow' comment, or .gitleaksignore" >&2
+    echo "  Emergency bypass: git commit --no-verify" >&2
+    exit 1
+  fi
+else
+  echo "pre-commit: gitleaks NOT INSTALLED — secret scan skipped." >&2
+  echo "  brew install gitleaks   (this gate is the reason the hook exists)" >&2
+fi
+
+repo_root="$(git rev-parse --show-toplevel)"
+if [ -x "$repo_root/.venv/bin/python" ]; then
+  RUFF="$repo_root/.venv/bin/python -m ruff"
+elif command -v ruff >/dev/null 2>&1; then
+  RUFF="ruff"
+else
+  RUFF=""
+fi
+
+if [ -n "$RUFF" ]; then
+  if ! $RUFF check .; then
+    echo "" >&2
+    echo "pre-commit: ruff found lint errors — commit blocked." >&2
+    echo "  ruff check . --fix   fixes most; emergency bypass: git commit --no-verify" >&2
+    exit 1
+  fi
+else
+  echo "pre-commit: ruff not installed — lint skipped (pip install -e \".[dev]\")." >&2
+fi
+exit 0

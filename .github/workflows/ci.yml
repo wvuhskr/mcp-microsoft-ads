@@ -1,0 +1,31 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0  # gitleaks scans full history
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]" ruff bandit
+      - run: ruff check .
+      - run: bandit -r mcp_microsoft_ads -q
+      - run: python -m pytest -q --cov=mcp_microsoft_ads --cov-fail-under=85
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # PR comments disabled: our token is contents-read-only (no pull-requests
+          # perm), so gitleaks' PR-comment API call would 403. Leak findings still
+          # fail the job with details in the log.
+          GITLEAKS_ENABLE_COMMENTS: "false"
