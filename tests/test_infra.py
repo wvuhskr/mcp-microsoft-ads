@@ -52,3 +52,27 @@ def test_bare_single_item_shapes(monkeypatch):
     monkeypatch.setattr(client, "account_id", lambda: 111222333)
     assert infra.list_accounts()["accounts"][0]["Number"] == "X000AAAA"
     assert infra.get_account_info()["role_ids"] == [41]
+
+def test_list_accounts_pages_past_100(monkeypatch):
+    """Old code sent a single Index=0/Size=100 SearchAccounts call, silently returning
+    only the first 100 accounts while the docstring implied all of them (Codex review
+    2026-08-24). Serve 100 + 100 + 30 across three pages; pre-fix this returns 100."""
+    def make_acct(i):
+        return NS(Id=i, Number=f"X{i:07d}", Name=f"Account {i}")
+    pages = [[make_acct(i) for i in range(100)],
+             [make_acct(100 + i) for i in range(100)],
+             [make_acct(200 + i) for i in range(30)]]
+    seen_indexes = []
+    def search(Predicates, Ordering, PageInfo):
+        seen_indexes.append(PageInfo.Index)
+        return NS(AdvertiserAccount=pages[PageInfo.Index])
+    monkeypatch.setattr(client, "svc", lambda name: NS(
+        GetUser=lambda UserId: NS(User=NS(Id=1, CustomerId=2),
+                                  CustomerRoles=NS(CustomerRole=[NS(RoleId=41)])),
+        SearchAccounts=search,
+        factory=NS(create=lambda t: NS(Predicate=None, long=None, Index=None, Size=None)),
+    ))
+    out = infra.list_accounts()
+    assert len(out["accounts"]) == 230
+    assert seen_indexes == [0, 1, 2]
+    assert "truncated" not in out

@@ -32,7 +32,7 @@ Microsoft's API:
 5. **JSONL audit log.** Every draft and every apply is appended to a local,
    append-only JSONL file — a plain-text paper trail of what this server actually did.
 
-Backed by 370+ offline tests (no live API calls) that exercise the rails, the SOAP
+Backed by 380+ offline tests (no live API calls) that exercise the rails, the SOAP
 plumbing quirks, and the draft/confirm lifecycle against fakes.
 
 ### Be honest about what "draft → confirm" is *not*
@@ -64,11 +64,13 @@ this one on.
 ## SOAP end-of-life and the REST roadmap
 
 This server is built on the `bingads` SOAP SDK. Microsoft has announced that SOAP is
-end-of-life on **2027-01-31**, and that new API features ship **REST-only starting
-2026-10-01**. Microsoft publishes an official `msads` Python REST SDK and a migration
-guide for the move. Porting this server's tools to REST is the roadmap item — SOAP
-still works today and isn't going away until the EOL date, but don't plan around it
-long-term.
+end-of-life on **2027-01-31**, and recommends migrating before **2026-10-01** (new
+API features ship REST-only from then). See Microsoft's
+[Migrate to REST API](https://learn.microsoft.com/en-us/advertising/guides/migrate-to-rest?view=bingads-13)
+guide and the
+[Python SDK SOAP-to-REST migration guide](https://learn.microsoft.com/en-us/advertising/guides/python-sdk-migration-soap-to-rest?view=bingads-13).
+Porting this server's tools to REST is the roadmap item — SOAP still works today and
+isn't going away until the EOL date, but don't plan around it long-term.
 
 ## How this compares
 
@@ -80,15 +82,18 @@ long-term.
 | CData Microsoft Ads MCP connector | read-only | n/a | no write path |
 | Microsoft's official hosted MCP | — | — | see Microsoft's docs for current scope |
 
-This project doesn't claim to know the exact current feature set of the other rows
+Comparison last checked 2026-08-24. This project doesn't claim to know the exact
+current feature set of the other rows
 beyond what's read-only vs. not — check each project's own repo/docs for details. The
 differentiators above (opt-in writes, two-phase draft→confirm, spend ceilings,
-Smart-Bidding fail-closed guards, JSONL audit log, 370+ offline tests) are what this
+Smart-Bidding fail-closed guards, JSONL audit log, 380+ offline tests) are what this
 project is built around.
 
 ## Install
 
 ```bash
+git clone https://github.com/wvuhskr/mcp-microsoft-ads.git
+cd mcp-microsoft-ads
 python3 -m venv .venv  # requires Python >= 3.12
 .venv/bin/pip install -e ".[dev]"
 ```

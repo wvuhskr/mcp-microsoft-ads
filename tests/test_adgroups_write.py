@@ -80,6 +80,8 @@ def test_bid_and_tcpa_built_via_client_blank(fake, monkeypatch):
         blanked.append(type_name)
         return real_blank(svc_obj, type_name)
     monkeypatch.setattr(client, "blank", spy)
+    # cpc_bid now requires a manual strategy (shared check_manual_bid_allowed guard)
+    monkeypatch.setattr(AG, "BiddingScheme", NS(Type="ManualCpc"))
 
     d = adgroups_write.update_ad_group(111, campaign_id=524066223, cpc_bid=20, target_cpa=45)
     rails.apply_draft(d["draft_id"])
@@ -110,3 +112,50 @@ def test_effective_strategy_routes_through_shared_client_helper(fake, monkeypatc
     d = adgroups_write.update_ad_group(111, campaign_id=524066223, target_cpa=45)
     assert calls, "client.effective_strategy was never called — a private duplicate is still in use"
     assert d["preview"]["effective_strategy"] == "MaxConversions"
+
+# --- shared manual-bidding guard on cpc_bid (Codex review 2026-08-24, finding 1) ---
+
+def test_cpc_bid_rejected_under_smart_bidding(fake):
+    """README rule 4 ("bid writes are allowlisted to manual bidding strategies")
+    covered update_keyword_bid but NOT update_ad_group.cpc_bid: the old code called
+    check_no_pct_adjustment(strategy, {}) — a no-op on an empty kwargs dict — so a
+    CpcBid change drafted fine under MaxConversions. Same silent-ignore risk as the
+    live-verified UpdateKeywords behavior. Pre-fix this test fails (draft succeeds)."""
+    with pytest.raises(rails.RailViolation, match="ad-group CpcBid change.*Smart Bidding"):
+        adgroups_write.update_ad_group(111, campaign_id=524066223, cpc_bid=5)
+
+def test_cpc_bid_allowed_under_manual_strategy(fake, monkeypatch):
+    monkeypatch.setattr(AG, "BiddingScheme", NS(Type="ManualCpc"))
+    d = adgroups_write.update_ad_group(111, campaign_id=524066223, cpc_bid=5)
+    assert d["preview"]["changes"]["CpcBid"]["after"] == 5
+
+def test_tcpa_still_allowed_under_smart_bidding(fake):
+    # tCPA is an allowed lever ON Smart Bidding — the guard must not gate it
+    d = adgroups_write.update_ad_group(111, campaign_id=524066223, target_cpa=45)
+    assert d["preview"]["changes"]["TargetCpa"]["after"] == 45
+
+# --- apply-time policy revalidation (Codex review 2026-08-24, finding 2) ---
+
+def test_apply_refuses_when_cap_lowered_after_draft_and_draft_survives(fake, monkeypatch):
+    """README rule 3 says draft AND apply both reject over-ceiling amounts; the old
+    apply_draft only rechecked the write gates + TTL, so lowering MS_ADS_MAX_CPC
+    after drafting still applied the stale draft. The refusal must not consume the
+    draft (same non-consuming rule as the gate checks)."""
+    monkeypatch.setattr(AG, "BiddingScheme", NS(Type="ManualCpc"))
+    d = adgroups_write.update_ad_group(111, campaign_id=524066223, cpc_bid=20)
+    monkeypatch.setenv("MS_ADS_MAX_CPC", "10")
+    with pytest.raises(rails.RailViolation, match="MS_ADS_MAX_CPC"):
+        rails.apply_draft(d["draft_id"])
+    assert not fake.updated, "over-ceiling apply reached UpdateAdGroups"
+    monkeypatch.setenv("MS_ADS_MAX_CPC", "50")
+    out = rails.apply_draft(d["draft_id"])  # draft survived the refusal
+    assert out["applied"] is True
+
+def test_apply_refuses_when_strategy_flips_to_smart_bidding_after_draft(fake, monkeypatch):
+    monkeypatch.setattr(AG, "BiddingScheme", NS(Type="ManualCpc"))
+    d = adgroups_write.update_ad_group(111, campaign_id=524066223, cpc_bid=5)
+    monkeypatch.setattr(AG, "BiddingScheme",
+                        NS(Type="InheritFromParent", InheritedBidStrategyType="MaxConversions"))
+    with pytest.raises(rails.RailViolation, match="Smart Bidding"):
+        rails.apply_draft(d["draft_id"])
+    assert not fake.updated, "Smart Bidding apply reached UpdateAdGroups"

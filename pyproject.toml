@@ -1,6 +1,6 @@
 [project]
 name = "mcp-microsoft-ads"
-version = "1.0.0"
+version = "1.0.1"
 requires-python = ">=3.12"
 dependencies = ["bingads==13.0.28", "mcp>=1.0,<2", "pyyaml>=6"]
 
