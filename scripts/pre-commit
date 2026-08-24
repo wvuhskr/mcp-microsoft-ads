@@ -21,8 +21,11 @@ if command -v gitleaks >/dev/null 2>&1; then
     exit 1
   fi
 else
-  echo "pre-commit: gitleaks NOT INSTALLED — secret scan skipped." >&2
-  echo "  brew install gitleaks   (this gate is the reason the hook exists)" >&2
+  # fail closed: the secret scan is the reason this hook exists
+  echo "pre-commit: gitleaks NOT INSTALLED — commit blocked." >&2
+  echo "  brew install gitleaks   (or see https://github.com/gitleaks/gitleaks#installing)" >&2
+  echo "  Emergency bypass: git commit --no-verify" >&2
+  exit 1
 fi
 
 repo_root="$(git rev-parse --show-toplevel)"
@@ -42,6 +45,9 @@ if [ -n "$RUFF" ]; then
     exit 1
   fi
 else
-  echo "pre-commit: ruff not installed — lint skipped (pip install -e \".[dev]\")." >&2
+  # fail closed, same stance as the gitleaks branch above
+  echo "pre-commit: ruff not installed — commit blocked (pip install -e \".[dev]\")." >&2
+  echo "  Emergency bypass: git commit --no-verify" >&2
+  exit 1
 fi
 exit 0

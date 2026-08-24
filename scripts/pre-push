@@ -10,6 +10,10 @@ if [ -x .venv/bin/python ]; then
     exit 1
   fi
 else
-  echo "pre-push: .venv missing — tests skipped (python3 -m venv .venv [requires Python >= 3.12] && .venv/bin/pip install -e '.[dev]')" >&2
+  # fail closed: a protective gate that silently skips is not a gate
+  echo "pre-push: .venv missing — push blocked (a gate that skips is no gate)." >&2
+  echo "  Fix: python3 -m venv .venv  (requires Python >= 3.12) && .venv/bin/pip install -e '.[dev]'" >&2
+  echo "  Emergency bypass: git push --no-verify" >&2
+  exit 1
 fi
 exit 0

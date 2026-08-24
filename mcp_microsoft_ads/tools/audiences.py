@@ -93,10 +93,17 @@ def add_audience_targeting(campaign_id: int, audience_id: int,
     Live-verified 2026-07-30 (the AddCampaignCriterions write path, CriterionType=
     "Audience"); the read-side fault seen earlier is GET-only and doesn't apply here."""
     svc = client.svc("CampaignManagementService")
-    # live-verified unwrapped: .AdGroup direct, not .AdGroups.AdGroup (deviation 5)
-    ags = client.as_list(getattr(svc.GetAdGroupsByCampaignId(CampaignId=campaign_id), "AdGroup", None))
-    strategy = client.effective_strategy(ags[0]) if ags else None
-    rails.check_no_pct_adjustment(strategy, {"audience_bid_adjustment_pct": bid_adjustment_pct})
+
+    def _campaign_strategy():
+        # live-verified unwrapped: .AdGroup direct, not .AdGroups.AdGroup (deviation 5)
+        ags = client.as_list(getattr(svc.GetAdGroupsByCampaignId(CampaignId=campaign_id), "AdGroup", None))
+        return client.effective_strategy(ags[0]) if ags else None
+
+    def check_policy(strategy):
+        rails.check_no_pct_adjustment(strategy, {"audience_bid_adjustment_pct": bid_adjustment_pct})
+
+    strategy = _campaign_strategy()
+    check_policy(strategy)
 
     def apply():
         crit = client.blank(svc, "AudienceCriterion")
@@ -128,4 +135,5 @@ def add_audience_targeting(campaign_id: int, audience_id: int,
                               {"campaign_id": campaign_id, "audience_id": audience_id,
                                "audience_type": audience_type,
                                "effective_strategy": strategy,
-                               "bid_adjustment_pct": bid_adjustment_pct}, apply)
+                               "bid_adjustment_pct": bid_adjustment_pct}, apply,
+                              validate_fn=lambda: check_policy(_campaign_strategy()))

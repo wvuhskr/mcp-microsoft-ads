@@ -29,10 +29,13 @@ def draft_keywords(ad_group_id: int, keywords: list[dict]) -> dict:
     (settings-configured blocked_terms) + bid cap (MS_ADS_MAX_CPC) enforced.
 
     Live-verified 2026-07-28 (one paused keyword added to a z. ad group)."""
-    rails.check_content([k["text"] for k in keywords])
-    for k in keywords:
-        if k.get("bid") is not None:
-            rails.check_bid(k["bid"])
+    def check_policy():
+        rails.check_content([k["text"] for k in keywords])
+        for k in keywords:
+            if k.get("bid") is not None:
+                rails.check_bid(k["bid"])
+
+    check_policy()
     preview_rows = [{"Text": k["text"], "MatchType": k["match_type"],
                      "Bid": k.get("bid"), "Status": "Paused"} for k in keywords]
 
@@ -60,7 +63,8 @@ def draft_keywords(ad_group_id: int, keywords: list[dict]) -> dict:
                 "verify": {"verified": all_paused, "created_count": len(created)}}
 
     return rails.create_draft("draft_keywords",
-                              {"ad_group_id": ad_group_id, "keywords": preview_rows}, apply)
+                              {"ad_group_id": ad_group_id, "keywords": preview_rows}, apply,
+                              validate_fn=check_policy)
 
 
 @mcp.tool()
@@ -74,10 +78,14 @@ def update_keyword_bid(ad_group_id: int, keyword_id: int, bid: float) -> dict:
 
     NOT live-verified for a landed bid change — the manual-bidding write path has
     never run live (no manual-bidding ad group exists on the development account)."""
-    rails.check_bid(bid)
     svc = client.svc("CampaignManagementService")
+
+    def check_policy(strategy):
+        rails.check_bid(bid)
+        rails.check_keyword_bid_allowed(strategy)
+
     strategy = _ad_group_strategy(svc, ad_group_id)
-    rails.check_keyword_bid_allowed(strategy)
+    check_policy(strategy)
 
     def apply():
         b = client.blank(svc, "Bid")
@@ -94,7 +102,8 @@ def update_keyword_bid(ad_group_id: int, keyword_id: int, bid: float) -> dict:
 
     return rails.create_draft("update_keyword_bid",
                               {"ad_group_id": ad_group_id, "keyword_id": keyword_id, "bid": bid,
-                               "effective_strategy": strategy}, apply)
+                               "effective_strategy": strategy}, apply,
+                              validate_fn=lambda: check_policy(_ad_group_strategy(svc, ad_group_id)))
 
 
 @mcp.tool()

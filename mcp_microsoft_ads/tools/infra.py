@@ -16,18 +16,26 @@ def health_check() -> dict:
 
 @mcp.tool()
 def list_accounts() -> dict:
-    """List advertiser accounts visible to the authenticated user."""
+    """List ALL advertiser accounts visible to the authenticated user (paged
+    SearchAccounts under the hood; `truncated` is true only if the 1000-account
+    safety cap was hit — raise MAX_PAGES if that ever happens for real)."""
     svc = client.svc("CustomerManagementService")
     user = _get_user().User
     pred = svc.factory.create("ns5:ArrayOfPredicate")
     p = svc.factory.create("ns5:Predicate")
     p.Field, p.Operator, p.Value = "UserId", "Equals", str(user.Id)
     pred.Predicate = [p]
-    page = svc.factory.create("ns5:Paging")
-    page.Index, page.Size = 0, 100
-    resp = svc.SearchAccounts(Predicates=pred, Ordering=None, PageInfo=page)
-    accounts = client.as_list(getattr(resp, "AdvertiserAccount", None))
-    return {"accounts": [suds_to_dict(a) for a in accounts]}
+    PAGE_SIZE, MAX_PAGES = 100, 10  # old code returned only the first 100 silently
+    accounts = []
+    for index in range(MAX_PAGES):
+        page = svc.factory.create("ns5:Paging")
+        page.Index, page.Size = index, PAGE_SIZE
+        resp = svc.SearchAccounts(Predicates=pred, Ordering=None, PageInfo=page)
+        batch = client.as_list(getattr(resp, "AdvertiserAccount", None))
+        accounts.extend(batch)
+        if len(batch) < PAGE_SIZE:
+            return {"accounts": [suds_to_dict(a) for a in accounts]}
+    return {"accounts": [suds_to_dict(a) for a in accounts], "truncated": True}
 
 
 @mcp.tool()

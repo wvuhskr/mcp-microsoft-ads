@@ -146,10 +146,13 @@ def create_pmax_campaign(name: str, daily_budget: float, final_url: str,
         raise ValueError(
             "target_cpa required — never launch PMax without a target (require_pmax_target_cpa "
             "setting is true; set it to false in advertiser settings to allow a no-target campaign)")
-    rails.check_budget(daily_budget)
-    if target_cpa is not None:
-        rails.check_bid(target_cpa)
-    rails.check_content([name, business_name] + headlines + long_headlines + descriptions)
+    def check_policy():
+        rails.check_budget(daily_budget)
+        if target_cpa is not None:
+            rails.check_bid(target_cpa)
+        rails.check_content([name, business_name] + headlines + long_headlines + descriptions)
+
+    check_policy()
 
     def apply():
         svc = client.svc("CampaignManagementService")
@@ -220,7 +223,7 @@ def create_pmax_campaign(name: str, daily_budget: float, final_url: str,
     return rails.create_draft("create_pmax_campaign",
                               {"Name": name, "Status": "Paused", "DailyBudget": daily_budget,
                                "TargetCpa": target_cpa, "TimeZone": time_zone,
-                               "images": len(image_media_ids)}, apply)
+                               "images": len(image_media_ids)}, apply, validate_fn=check_policy)
 
 
 @mcp.tool()
@@ -233,12 +236,16 @@ def create_portfolio_bidding_strategy(name: str, strategy_type: str,
     Live-verified 2026-07-30."""
     if strategy_type not in STRATEGY_TYPES:
         raise ValueError(f"strategy_type must be one of {sorted(STRATEGY_TYPES)}, got '{strategy_type}'")
-    if target_cpa is not None:
-        if strategy_type != "MaxConversions":
-            # WSDL-confirmed: MaxClicksBiddingScheme/TargetImpressionShareBiddingScheme have
-            # no TargetCpa field — setting it would silently fail to serialize rather than error.
-            raise ValueError(f"target_cpa only applies to strategy_type=MaxConversions, not {strategy_type}")
-        rails.check_bid(target_cpa)
+    if target_cpa is not None and strategy_type != "MaxConversions":
+        # WSDL-confirmed: MaxClicksBiddingScheme/TargetImpressionShareBiddingScheme have
+        # no TargetCpa field — setting it would silently fail to serialize rather than error.
+        raise ValueError(f"target_cpa only applies to strategy_type=MaxConversions, not {strategy_type}")
+
+    def check_policy():
+        if target_cpa is not None:
+            rails.check_bid(target_cpa)
+
+    check_policy()
 
     def apply():
         svc = client.svc("CampaignManagementService")
@@ -259,4 +266,4 @@ def create_portfolio_bidding_strategy(name: str, strategy_type: str,
 
     return rails.create_draft("create_portfolio_bidding_strategy",
                               {"name": name, "strategy_type": strategy_type,
-                               "target_cpa": target_cpa}, apply)
+                               "target_cpa": target_cpa}, apply, validate_fn=check_policy)

@@ -217,16 +217,23 @@ def check_no_pct_adjustment(effective_strategy, kwargs: dict):
                 f"[{MIN_BID_ADJUSTMENT_PCT}, {MAX_BID_ADJUSTMENT_PCT}] (percent).")
 
 
-def check_keyword_bid_allowed(effective_strategy):
-    """Pre-reject at draft time (Task 25e owner decision): UpdateKeywords silently ignores a
-    keyword Bid change when the ad group's effective strategy is Smart Bidding — empty
-    PartialErrors, bid unchanged on read-back (live-verified) — so it must be caught here,
-    not left to look like a no-op success. Task C: inverted to an allowlist — permitted
-    ONLY for MANUAL_BIDDING strategies, same fail-closed stance as check_no_pct_adjustment
-    when the strategy can't be read at all or isn't a recognized manual scheme."""
+def check_manual_bid_allowed(effective_strategy, subject: str):
+    """Shared fail-closed guard for any fixed-amount bid write (keyword Bid, ad-group
+    CpcBid): permitted ONLY for MANUAL_BIDDING strategies. MS silently ignores such
+    bids under Smart Bidding instead of erroring (live-verified for UpdateKeywords —
+    empty PartialErrors, bid unchanged on read-back), so it must be caught before the
+    call, not left to look like a no-op success. Same fail-closed stance as
+    check_no_pct_adjustment when the strategy can't be read at all or isn't a
+    recognized manual scheme."""
     if effective_strategy in MANUAL_BIDDING:
         return
-    _reject_not_manual_bidding(effective_strategy, "keyword bid change")
+    _reject_not_manual_bidding(effective_strategy, subject)
+
+
+def check_keyword_bid_allowed(effective_strategy):
+    """Pre-reject at draft time (Task 25e owner decision) — see check_manual_bid_allowed;
+    kept as the keyword-specific entry point its call sites and tests already use."""
+    check_manual_bid_allowed(effective_strategy, "keyword bid change")
 
 
 @dataclass
@@ -235,6 +242,7 @@ class Draft:
     tool: str
     preview: dict
     apply_fn: Callable[[], dict]
+    validate_fn: Callable[[], None] | None = None
     created_at: float = field(default_factory=time.time)
 
 
@@ -257,11 +265,18 @@ def _prune_expired_drafts() -> None:
         del _DRAFTS[k]
 
 
-def create_draft(tool: str, preview: dict, apply_fn: Callable[[], dict]) -> dict:
+def create_draft(tool: str, preview: dict, apply_fn: Callable[[], dict],
+                 validate_fn: Callable[[], None] | None = None) -> dict:
+    """validate_fn: optional re-check of the tool's draft-time policy rails (spend
+    ceilings, bid-strategy allowlist), run again by apply_draft immediately before
+    mutation. Rails read env at call time, so a ceiling lowered after drafting — or a
+    bid strategy changed on the account — refuses the stale draft instead of applying
+    it within the TTL window. A refusal does NOT consume the draft."""
     check_writes_enabled()  # before any preview/audit side effect
     check_apply_recommendation_allowed(tool)  # second gate, same "before side effects" rule
     _prune_expired_drafts()
-    d = Draft(id=uuid.uuid4().hex[:12], tool=tool, preview=preview, apply_fn=apply_fn)
+    d = Draft(id=uuid.uuid4().hex[:12], tool=tool, preview=preview, apply_fn=apply_fn,
+              validate_fn=validate_fn)
     _DRAFTS[d.id] = d
     audit.log_event(tool, "draft", {"draft_id": d.id, "preview": preview})
     return {"draft_id": d.id, "dry_run": True, "preview": preview,
@@ -273,6 +288,12 @@ def apply_draft(draft_id: str) -> dict:
     peeked = _DRAFTS.get(draft_id)  # peek only -- the tool name is known from the draft
     if peeked is not None:
         check_apply_recommendation_allowed(peeked.tool)  # before pop, same non-consuming rule
+        if peeked.validate_fn is not None and time.time() - peeked.created_at <= draft_ttl_seconds():
+            # re-run the tool's policy rails against CURRENT env + account state, still
+            # before pop: a rail refusal must not consume the draft (matching the gate
+            # checks above). Expired drafts skip this — the pop path below raises the
+            # dedicated expired message without burning a live API call first.
+            peeked.validate_fn()
     d = _DRAFTS.pop(draft_id, None)
     _prune_expired_drafts()  # sweep other stale entries while we're touching the dict
     if d is None:

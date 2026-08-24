@@ -31,11 +31,13 @@ def update_campaign(campaign_id: int, daily_budget: float | None = None,
         raise ValueError("nothing to change — pass daily_budget, status, and/or target_cpa")
     if status is not None and status not in ("Active", "Paused"):
         raise ValueError("status must be Active or Paused")
-    if daily_budget is not None:
-        rails.check_budget(daily_budget)
-    if target_cpa is not None:
-        rails.check_bid(target_cpa)
+    def check_policy():
+        if daily_budget is not None:
+            rails.check_budget(daily_budget)
+        if target_cpa is not None:
+            rails.check_bid(target_cpa)
 
+    check_policy()
     current = _fetch_campaign(campaign_id)
     changes = {}
     if daily_budget is not None:
@@ -88,7 +90,7 @@ def update_campaign(campaign_id: int, daily_budget: float | None = None,
 
     return rails.create_draft("update_campaign",
                               {"campaign": current.Name, "campaign_id": campaign_id, "changes": changes},
-                              apply)
+                              apply, validate_fn=check_policy)
 
 
 @mcp.tool()
@@ -100,8 +102,11 @@ def draft_campaign(name: str, campaign_type: str, daily_budget: float,
 
     Live-verified 2026-07-30 (AddCampaigns create path, proven twice).
     NOT live-verified with non-default language values."""
-    rails.check_budget(daily_budget)
-    rails.check_content([name])
+    def check_policy():
+        rails.check_budget(daily_budget)
+        rails.check_content([name])
+
+    check_policy()
     preview = {"Name": name, "CampaignType": campaign_type, "DailyBudget": daily_budget,
                "Status": "Paused", "TimeZone": time_zone, "Language": language,
                "BudgetType": "DailyBudgetStandard"}
@@ -135,4 +140,4 @@ def draft_campaign(name: str, campaign_type: str, daily_budget: float,
             result["verify"] = verify.verify_fields(lambda: _fetch_campaign(ids[0]), expect)
         return result
 
-    return rails.create_draft("draft_campaign", preview, apply)
+    return rails.create_draft("draft_campaign", preview, apply, validate_fn=check_policy)
