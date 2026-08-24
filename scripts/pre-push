@@ -1,0 +1,15 @@
+#!/bin/sh
+# mcp-microsoft-ads pre-push gate: full suite before anything reaches origin.
+# Suite is ~0.5s all-offline, so this is effectively free. A LIVE-token-refresh
+# warning in the output means a test is hitting the real API — that's a bug too.
+cd "$(git rev-parse --show-toplevel)" || exit 1
+if [ -x .venv/bin/python ]; then
+  if ! .venv/bin/python -m pytest -q; then
+    echo "" >&2
+    echo "pre-push: tests failed — push blocked. Emergency bypass: git push --no-verify" >&2
+    exit 1
+  fi
+else
+  echo "pre-push: .venv missing — tests skipped (python3 -m venv .venv [requires Python >= 3.12] && .venv/bin/pip install -e '.[dev]')" >&2
+fi
+exit 0

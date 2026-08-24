@@ -1,0 +1,27 @@
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.coverage
+graphify-out/
+
+# macOS
+.DS_Store
+
+# Microsoft Ads credentials — developer token, client secret, refresh token.
+# Nothing matching these is in the repo today (history verified with gitleaks
+# before publish) and the intent is that creds stay OUT of the tree
+# entirely, in env vars. These patterns plus the pre-commit hook are the
+# belt-and-suspenders for the session that first wires real auth.
+.env
+.env.*
+!.env.example
+credentials.yaml
+credentials.yml
+*.pem
+*.key
+*.p12
+*.pfx
+tokens.json
+refresh_token*
+*.bak
