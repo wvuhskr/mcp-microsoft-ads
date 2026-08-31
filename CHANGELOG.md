@@ -24,6 +24,16 @@ Security and account-safety fixes:
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-08-25
+
+### Added
+
+- Published to PyPI: `pip install mcp-microsoft-ads` / `uvx mcp-microsoft-ads`.
+  Packaging metadata filled in (description, README as long description, MIT
+  license expression, authors, keywords, classifiers, project URLs) and a
+  secretless GitHub Actions release workflow (PyPI trusted publishing / OIDC,
+  triggered on `v*` tags).
+
 ### Changed
 
 - Compatible with both mcp 1.x and 2.x (requirement widened to `mcp>=1.0,<3`;
