@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 from . import audit, settings
+from .app import ToolError
 
 SMART_BIDDING = {"MaxConversions", "MaxConversionValue", "TargetCpa", "TargetRoas"}
 
@@ -37,11 +38,11 @@ MIN_BID_ADJUSTMENT_PCT = -90
 MAX_BID_ADJUSTMENT_PCT = 900
 
 
-class RailViolation(ValueError):
-    pass
+class RailViolation(ValueError, ToolError):
+    """Intentional refusal, safe to show through both MCP SDK generations."""
 
 
-class PartialWriteError(Exception):
+class PartialWriteError(ToolError):
     """Plan item 11: raised by a multi-step apply_fn when step 1 landed but a later
     step raised (not a PARTIAL-ERROR abort dict -- an actual exception: SOAP fault,
     network, suds error). `.partial` carries every landed ID/action so the caller can
@@ -277,8 +278,8 @@ def create_draft(tool: str, preview: dict, apply_fn: Callable[[], dict],
     _prune_expired_drafts()
     d = Draft(id=uuid.uuid4().hex[:12], tool=tool, preview=preview, apply_fn=apply_fn,
               validate_fn=validate_fn)
-    _DRAFTS[d.id] = d
     audit.log_event(tool, "draft", {"draft_id": d.id, "preview": preview})
+    _DRAFTS[d.id] = d
     return {"draft_id": d.id, "dry_run": True, "preview": preview,
             "next": f"confirm_and_apply(draft_id='{d.id}')"}
 
