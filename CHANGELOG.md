@@ -4,6 +4,24 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+
+## Unreleased
+
+Security and account-safety fixes:
+
+- Validate image contents and size locally; require the applied file to match its
+  preview, and refuse file access when account writes are disabled.
+- Create credential backups privately and atomically without following an existing
+  backup link. Rotate only the refresh-token field and suppress secret-bearing
+  parser excerpts from credential errors.
+- Preserve safety refusals and partial-write recovery details through MCP 2 tool
+  dispatch. Require MCP 1.28.1 or newer, retaining support below major version 3.
+- Restrict ordinary ad-group status updates to Active or Paused. Handle single-item
+  ad and keyword status readbacks without reporting a successful write as a crash.
+- Do not retain an applicable draft when recording its preview fails.
+- Add dependency vulnerability scanning and an oldest-supported-MCP test job to
+  automated checks. These changes have been verified offline, not against live ads.
+
 ## [Unreleased]
 
 ### Changed

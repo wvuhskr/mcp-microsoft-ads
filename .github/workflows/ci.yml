@@ -24,6 +24,7 @@ jobs:
       - run: pip install -e ".[dev]" ruff bandit
       - run: ruff check .
       - run: bandit -r mcp_microsoft_ads -q
+      - run: pip-audit --skip-editable
       - run: python -m pytest -q --cov=mcp_microsoft_ads --cov-fail-under=85
       - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
@@ -32,3 +33,16 @@ jobs:
           # perm), so gitleaks' PR-comment API call would 403. Leak findings still
           # fail the job with details in the log.
           GITLEAKS_ENABLE_COMMENTS: "false"
+
+  mcp-v1:
+    # Keep the existing test job names stable for branch protection. This separate
+    # job proves the oldest supported SDK; the main jobs install the newest SDK.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]" "mcp==1.28.1"
+      - run: python -m pytest -q --cov=mcp_microsoft_ads --cov-fail-under=85
+      - run: pip-audit --skip-editable

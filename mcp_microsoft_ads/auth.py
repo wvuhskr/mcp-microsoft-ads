@@ -18,7 +18,6 @@ warning (kept for install compatibility -- never required, never read).
 """
 import os
 import re
-import shutil
 import sys
 import tempfile
 
@@ -46,28 +45,52 @@ def creds_path() -> str:
     return os.environ.get("MS_ADS_CREDENTIALS_PATH") or CREDS_PATH
 
 
+def _parse_creds(raw: str, path: str) -> dict:
+    try:
+        data = yaml.safe_load(raw)
+    except yaml.YAMLError:
+        # Parser messages and chained tracebacks can quote the secret-bearing line.
+        raise CredsError(f"{path}: invalid credentials YAML; check the file locally") from None
+    if data is None:
+        return {}
+    if not isinstance(data, dict):
+        raise CredsError(f"{path}: credentials must be a mapping")
+    return data
+
+
 def _read_creds_file(path: str) -> dict:
     try:
-        with open(path) as f:
-            return yaml.safe_load(f) or {}
+        with open(path, encoding="utf-8") as f:
+            raw = f.read()
     except FileNotFoundError:
         raise CredsError(f"{path} not found — create the credentials file or export the "
-                         "MS_ADS_* env vars (see README)")
-    except (yaml.YAMLError, OSError) as e:
-        raise CredsError(f"{path}: {e}")
+                         "MS_ADS_* env vars (see README)") from None
+    except (UnicodeError, OSError):
+        raise CredsError(f"{path}: unable to read credentials file") from None
+    return _parse_creds(raw, path)
 
 
 def _read_creds_file_optional(path: str) -> dict:
-    """Like _read_creds_file, but a MISSING file is fine (returns {}) -- used by
-    load_static_creds, where the file may not exist yet (first-run bootstrap). A
-    present-but-broken file still raises."""
-    try:
-        with open(path) as f:
-            return yaml.safe_load(f) or {}
-    except FileNotFoundError:
+    """Missing is fine for bootstrap; malformed or unreadable files still fail."""
+    if not os.path.lexists(path):
         return {}
-    except (yaml.YAMLError, OSError) as e:
-        raise CredsError(f"{path}: {e}")
+    return _read_creds_file(path)
+
+
+def _atomic_private_write(path: str, raw: str) -> None:
+    """Create privately BEFORE writing, then replace the directory entry.
+
+    In particular, never follow a pre-existing .bak symlink or hard link and
+    never inherit the original file's potentially public permissions.
+    """
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path) or ".")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(raw)
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
 
 
 def _gather_static(file_creds: dict) -> tuple[dict, list[str]]:
@@ -180,16 +203,41 @@ def persist_rotated_token(old: str, new: str | None, path: str | None = None) ->
         raise CredsError("active refresh_token is blank/invalid; refusing string replacement")
     if not new or new == old:
         return False
-    raw = open(path).read()  # read FULLY before creating any write handle
-    if old not in raw:
+    if _blank_rt(new):
+        raise CredsError("new refresh_token is blank/invalid; refusing to overwrite")
+    try:
+        with open(path, encoding="utf-8") as f:
+            raw = f.read()
+    except (UnicodeError, OSError):
+        raise CredsError(f"{path}: unable to read credentials file") from None
+    current = _parse_creds(raw, path)
+    if current.get("refresh_token") != old:
         raise CredsError("active refresh_token not present in creds file; refusing to overwrite")
-    shutil.copy2(path, path + ".bak")
-    os.chmod(path + ".bak", 0o600)
-    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path) or ".")
-    with os.fdopen(fd, "w") as f:
-        f.write(raw.replace(old, new))
-    os.chmod(tmp, 0o600)
-    os.replace(tmp, path)  # atomic
+    # Replace exactly the YAML value, preserving other fields and comments. A
+    # token may also occur in another credential, so raw.replace(old, new) is unsafe.
+    document = yaml.compose(raw, Loader=yaml.SafeLoader)
+    tokens = [(key, value) for key, value in document.value if key.value == "refresh_token"]
+    if len(tokens) != 1:
+        raise CredsError("ambiguous refresh_token field; refusing to overwrite")
+    key, node = tokens[0]
+    if node.start_mark.index < key.end_mark.index:
+        # YAML alias pointing at another field: round-trip to avoid changing its target.
+        current["refresh_token"] = new
+        updated = yaml.safe_dump(current)
+    else:
+        encoded = yaml.safe_dump(new, default_style='"').strip()
+        updated = raw[:node.start_mark.index] + encoded + raw[node.end_mark.index:]
+    expected = {**current, "refresh_token": new}
+    try:
+        matches = yaml.safe_load(updated) == expected
+    except yaml.YAMLError:
+        matches = False
+    if not matches:
+        # Block scalars can consume a newline and anchors may be referenced by
+        # other fields. Fall back to a safe round-trip for those unusual files.
+        updated = yaml.safe_dump(expected)
+    _atomic_private_write(path + ".bak", raw)
+    _atomic_private_write(path, updated)
     return True
 
 
@@ -207,30 +255,27 @@ def write_initial_refresh_token(refresh_token: str, path: str | None = None) -> 
     (CredsError) if the file already carries a refresh_token: overwriting a live
     token is the reauth path's job (persist_rotated_token), never this one's."""
     path = path or creds_path()
+    if _blank_rt(refresh_token):
+        raise CredsError("new refresh_token is blank/invalid; refusing to write")
     existing: dict = {}
     if os.path.exists(path):
         try:
-            with open(path) as f:
+            with open(path, encoding="utf-8") as f:
                 raw = f.read()
-            existing = yaml.safe_load(raw) or {}
-        except (yaml.YAMLError, OSError) as e:
-            raise CredsError(f"{path}: {e}")
+        except (UnicodeError, OSError):
+            raise CredsError(f"{path}: unable to read credentials file") from None
+        existing = _parse_creds(raw, path)
         if not _blank_rt(existing.get("refresh_token")):
             raise CredsError(f"{path} already has a refresh_token — that's the reauth "
                              "flow's job, not bootstrap")
-        shutil.copy2(path, path + ".bak")
-        os.chmod(path + ".bak", 0o600)
+        _atomic_private_write(path + ".bak", raw)
     else:
         parent = os.path.dirname(path)
         if parent:
             os.makedirs(parent, mode=0o700, exist_ok=True)
 
     existing["refresh_token"] = refresh_token
-    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path) or ".")
-    os.chmod(tmp, 0o600)  # before content lands
-    with os.fdopen(fd, "w") as f:
-        yaml.safe_dump(existing, f)
-    os.replace(tmp, path)  # atomic
+    _atomic_private_write(path, yaml.safe_dump(existing))
 
 
 def build_authorization(path: str | None = None):

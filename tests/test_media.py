@@ -1,10 +1,18 @@
 import base64
+import io
 from types import SimpleNamespace as NS
 
 import pytest
+from PIL import Image
 
 from mcp_microsoft_ads import client, rails
 from mcp_microsoft_ads.tools import media
+
+
+def image_bytes():
+    out = io.BytesIO()
+    Image.new("RGB", (4, 4), "red").save(out, format="PNG")
+    return out.getvalue()
 
 
 class FakeSvc:
@@ -29,7 +37,7 @@ def fake(monkeypatch, tmp_path):
 
 def test_upload_image_asset(fake, tmp_path):
     img_path = tmp_path / "logo.png"
-    img_path.write_bytes(b"\x89PNG\r\n\x1a\nfakepngbytes")
+    img_path.write_bytes(image_bytes())
     d = media.upload_image_asset(str(img_path), media_type="Image191x100")
     assert d["preview"]["size_kb"] >= 0
     assert d["preview"]["media_type"] == "Image191x100"
@@ -39,7 +47,7 @@ def test_upload_image_asset(fake, tmp_path):
     m = fake.added[0].Media[0]
     assert m.Type == "Image"
     assert m.MediaType == "Image191x100"
-    assert base64.b64decode(m.Data) == b"\x89PNG\r\n\x1a\nfakepngbytes"
+    assert base64.b64decode(m.Data) == image_bytes()
 
 
 def test_missing_file_raises(fake, tmp_path):
@@ -51,7 +59,7 @@ def test_bad_media_type_raises_before_service_call(fake, tmp_path):
     """Defect 1: MediaType is an aspect-ratio label, not the literal 'Image' — an
     unrecognized label must raise before AddMedia is ever called."""
     img_path = tmp_path / "logo.png"
-    img_path.write_bytes(b"data")
+    img_path.write_bytes(image_bytes())
     with pytest.raises(ValueError, match="media_type"):
         media.upload_image_asset(str(img_path), media_type="Bogus")
     assert fake.added == []
@@ -72,7 +80,7 @@ def test_upload_image_asset_unwrapped_response_shape(monkeypatch, tmp_path):
     monkeypatch.setattr(client, "svc", lambda n: svc)
     monkeypatch.setattr("mcp_microsoft_ads.audit.AUDIT_PATH", str(tmp_path / "a.jsonl"))
     img_path = tmp_path / "logo.png"
-    img_path.write_bytes(b"data")
+    img_path.write_bytes(image_bytes())
     d = media.upload_image_asset(str(img_path), media_type="Image191x100")
     out = rails.apply_draft(d["draft_id"])
     assert out["result"]["media_ids"] == [1326011251266108]
