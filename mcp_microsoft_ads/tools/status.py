@@ -54,7 +54,7 @@ def _flip(entity_type: str, entity_id: int, parent_id, new_status: str) -> dict:
             return svc.UpdateKeywords(AdGroupId=parent_id, Keywords=arr)
         def readback():
             r = svc.GetKeywordsByAdGroupId(AdGroupId=parent_id)
-            return next(k for k in r.Keyword if k.Id == entity_id)
+            return next(k for k in client.as_list(getattr(r, "Keyword", None)) if k.Id == entity_id)
     else:  # ad — Ads support Active/Paused via UpdateAds Status
         cur = SimpleNamespace(Name=f"ad {entity_id}", Status="(not fetched)")
         def do():
@@ -68,7 +68,7 @@ def _flip(entity_type: str, entity_id: int, parent_id, new_status: str) -> dict:
             types = svc.factory.create("ArrayOfAdType")
             types.AdType = ["ResponsiveSearch", "ExpandedText", "DynamicSearch", "Text"]
             r = svc.GetAdsByAdGroupId(AdGroupId=parent_id, AdTypes=types)
-            return next(a for a in r.Ad if a.Id == entity_id)
+            return next(a for a in client.as_list(getattr(r, "Ad", None)) if a.Id == entity_id)
 
     def apply():
         resp = do()

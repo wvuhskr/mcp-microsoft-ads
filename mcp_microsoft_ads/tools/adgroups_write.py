@@ -26,6 +26,8 @@ def update_ad_group(ad_group_id: int, campaign_id: int, status: str | None = Non
     NOT live-verified through this tool itself. The underlying blank()-built UpdateAdGroups
     call IS live-proven (2026-07-28, Status flip on a z. ad group via pause/enable_entity);
     the cpc_bid / target_cpa branches have never run live."""
+    if status is not None and status not in ("Active", "Paused"):
+        raise ValueError("status must be Active or Paused; use remove_entity for deletion")
     if status is None and cpc_bid is None and target_cpa is None:
         raise ValueError("nothing to change")
 

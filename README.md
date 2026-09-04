@@ -115,7 +115,27 @@ The six static fields (everything except `refresh_token`) can instead be set as
 file when both are present. `refresh_token` is file-only: Microsoft rotates it on
 every use, and a rotated token has to be persisted somewhere for the next run, which
 an env var can't do. The server persists each rotation back to the credentials file
-atomically (a `.bak` is kept).
+atomically (a `.bak` is kept). Both replacement files are created with
+owner-only access before any credential content is written. Rotation changes only
+the refresh-token value; unusual YAML aliases or block values may be rewritten
+without their original comments to preserve the credential values safely.
+
+### Image upload safety
+
+`upload_image_asset` accepts valid PNG or JPEG files only. Local safety limits
+are 5 MiB per file and 20 million pixels; these are this server's limits, not
+Microsoft account limits. Animated and malformed images are rejected locally.
+The preview includes a SHA-256 digest, a fingerprint of the file's contents.
+Changing the file after preview requires a new draft. Validated bytes are uploaded
+unchanged, including image metadata, so use assets intended for advertising.
+
+### Supported tool library versions
+
+The Model Context Protocol (MCP) library must be at least 1.28.1 and below 3.
+The automated checks test the oldest supported version and the current version.
+Intentional safety refusals and partial-write warnings remain visible to the
+assistant in both library generations; unexpected errors retain the library's
+normal handling.
 
 ### First-run walkthrough
 
