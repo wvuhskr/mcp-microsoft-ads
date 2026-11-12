@@ -2,8 +2,11 @@
 submit -> poll -> download; we build requests + parse CSV."""
 import csv
 import io
+import os
+import re
 import tempfile
 
+import bingads
 from bingads.v13.reporting import ReportingDownloadParameters, ReportingServiceManager
 
 from . import client
@@ -29,6 +32,23 @@ REPORT_PRESETS = {
 }
 
 _PREDEFINED = {7: "LastSevenDays", 14: "Last14Days", 30: "Last30Days"}  # exact v13 ReportTimePeriod names
+
+
+_WSDL = os.path.join(os.path.dirname(bingads.__file__), "v13", "proxies", "production",
+                     "reporting_service.xml")
+
+
+def report_catalog() -> dict[str, list[str]]:
+    """{report request type: valid column names}, read offline from the WSDL file the
+    bingads SDK ships (no API call, no credentials). A request type whose columns enum
+    isn't named <Type minus 'Request'>Column maps to []."""
+    with open(_WSDL, encoding="utf-8") as f:
+        wsdl = f.read()
+    enums = {name: re.findall(r'enumeration value="(\w+)"', body) for name, body in
+             re.findall(r'<xs:simpleType name="(\w+ReportColumn)">(.*?)</xs:simpleType>', wsdl, re.S)}
+    types = sorted(set(re.findall(r'name="(\w+ReportRequest)"', wsdl))
+                   - {"SubmitGenerateReportRequest", "PollGenerateReportRequest"})
+    return {t: enums.get(t.replace("Request", "Column"), []) for t in types}
 
 
 def parse_report_csv(text: str) -> list[dict]:
@@ -66,7 +86,8 @@ def run_report_request(report_type: str, columns: list[str], days: int = 30,
     if (start_date is None) != (end_date is None):
         raise ValueError("start_date and end_date must be given together")
     if start_date is None and days not in _PREDEFINED:
-        raise ValueError(f"days must be one of {sorted(_PREDEFINED)}, got {days}")
+        raise ValueError(f"days must be one of {sorted(_PREDEFINED)}, got {days} — for any other "
+                         "range use run_report with start_date/end_date (YYYY-MM-DD)")
     svc = client.svc("ReportingService")
     req = svc.factory.create(report_type)
     req.Format = "Csv"

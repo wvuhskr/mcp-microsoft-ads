@@ -1,3 +1,5 @@
+import sys
+
 from . import settings
 from .app import mcp
 from .tools import (
@@ -27,6 +29,15 @@ from .tools import (
 
 
 def main():
+    # `mcp-microsoft-ads setup` / `reauth` are the human-run helpers; no argument (how
+    # an MCP client launches it) serves.
+    if len(sys.argv) > 1 and sys.argv[1] in ("setup", "reauth"):
+        cmd = sys.argv.pop(1)
+        if cmd == "setup":
+            from . import setup_wizard
+            sys.exit(setup_wizard.main())
+        from . import reauth
+        sys.exit(reauth.main())
     settings.load()  # loud failure on a bad advertiser.yaml, before serving starts
     mcp.run()
 

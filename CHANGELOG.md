@@ -5,9 +5,43 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
-## Unreleased
+## [1.1.0] - Unreleased
 
-Security and account-safety fixes:
+Built for marketers, not only developers.
+
+### Added
+
+- Guided setup: `mcp-microsoft-ads setup` asks for the six credential values, saves
+  them to an owner-only file, runs the sign-in, and prints the client config block.
+  `mcp-microsoft-ads reauth` re-runs the sign-in alone. Setup never overwrites an
+  existing credentials file.
+- One-line run with no clone: `uvx --from git+https://github.com/wvuhskr/mcp-microsoft-ads
+  mcp-microsoft-ads`. Packaging metadata and a secretless PyPI release workflow
+  (trusted publishing, triggered on `v*` tags) are in place; nothing has been
+  published to PyPI yet.
+- `describe_report` tool (48 tools total): lists every report type and its valid
+  column names, read offline from the API definition shipped with the SDK, so
+  `run_report` no longer requires knowing Microsoft's internal names.
+- Report results name the period, aggregation, columns, and how conversions are
+  counted in their `provenance` block.
+- `advertiser.example.yaml`: commented example of the optional house-rules file.
+- Sign-in reads the clipboard on Windows and Linux as well as macOS (offline-tested
+  only on those two).
+
+### Fixed
+
+- The ready-made reports failed for 14 and 30 days (30 is the default): the server
+  sent period names the API rejects. Now `Last14Days` / `Last30Days`.
+
+### Changed
+
+- README rewritten around what a marketer can ask, a five-step quick start, and a
+  plain-language list of every tool. Report tool descriptions say what each returns.
+- Compatible with both mcp 1.x and 2.x (mcp 2.0 renamed `FastMCP` to `MCPServer`,
+  shimmed in `app.py`). Dependency floors: bingads 13.0.29, pyyaml>=6.0.3,
+  bandit>=1.9.4, setuptools>=84; gitleaks-action v3.0.0 in CI.
+
+### Security
 
 - Validate image contents and size locally; require the applied file to match its
   preview, and refuse file access when account writes are disabled.
@@ -21,30 +55,6 @@ Security and account-safety fixes:
 - Do not retain an applicable draft when recording its preview fails.
 - Add dependency vulnerability scanning and an oldest-supported-MCP test job to
   automated checks. These changes have been verified offline, not against live ads.
-
-## [Unreleased]
-
-### Fixed
-
-- `run_report` with `days=14` or `days=30` sent period names the Reporting API rejects (`LastFourteenDays`, `LastThirtyDays`); now sends `Last14Days` and `Last30Days`.
-
-## [1.0.2] - 2026-08-25
-
-### Added
-
-- Published to PyPI: `pip install mcp-microsoft-ads` / `uvx mcp-microsoft-ads`.
-  Packaging metadata filled in (description, README as long description, MIT
-  license expression, authors, keywords, classifiers, project URLs) and a
-  secretless GitHub Actions release workflow (PyPI trusted publishing / OIDC,
-  triggered on `v*` tags).
-
-### Changed
-
-- Compatible with both mcp 1.x and 2.x (requirement widened to `mcp>=1.0,<3`;
-  mcp 2.0 renamed `FastMCP` to `MCPServer` — same tool surface, shimmed in
-  `app.py`). Suite passes on mcp 1.29.0 and 2.1.0.
-- Dependency floors: bingads 13.0.29, pyyaml>=6.0.3, bandit>=1.9.4,
-  setuptools>=84; gitleaks-action v3.0.0 in CI; Dependabot bumps.
 
 ## [1.0.1] - 2026-08-24
 
