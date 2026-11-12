@@ -24,6 +24,10 @@ Security and account-safety fixes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `run_report` with `days=14` or `days=30` sent period names the Reporting API rejects (`LastFourteenDays`, `LastThirtyDays`); now sends `Last14Days` and `Last30Days`.
+
 ## [1.0.2] - 2026-08-25
 
 ### Added

@@ -28,7 +28,7 @@ REPORT_PRESETS = {
                       "Impressions", "Clicks", "Spend", "Conversions", "Ctr"]),
 }
 
-_PREDEFINED = {7: "LastSevenDays", 14: "LastFourteenDays", 30: "LastThirtyDays"}
+_PREDEFINED = {7: "LastSevenDays", 14: "Last14Days", 30: "Last30Days"}  # exact v13 ReportTimePeriod names
 
 
 def parse_report_csv(text: str) -> list[dict]:
