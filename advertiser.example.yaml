@@ -1,0 +1,27 @@
+# Optional house rules for your account. Copy to ~/.mcp-microsoft-ads/advertiser.yaml
+# (or point MS_ADS_ADVERTISER_CONFIG at your copy) and edit. Every key is optional;
+# delete what you don't need. A typo in a key name stops the server at startup with a
+# message naming the key, rather than being silently ignored.
+
+# Words that must never appear in ad copy or keywords this server creates. Any headline,
+# description, URL path, or keyword containing one is refused. (Negative keywords are
+# exempt: blocking a search for a banned word is the point.)
+blocked_terms:
+  - guaranteed
+  - "lowest price"
+
+# Your website. Used as the default "visited a page containing..." rule when creating a
+# remarketing list.
+advertiser_domain: example.com
+
+# Never create a Performance Max campaign without a target cost per conversion.
+# true is the default and the safe choice; set false only if you really want an
+# untargeted campaign.
+require_pmax_target_cpa: true
+
+# Where keyword research (discover_keywords, get_keyword_forecasts) looks.
+# location_id comes from the search_geo_targets tool; 190 is the United States.
+keyword_research:
+  location_id: 190
+  language: English
+  network: OwnedAndOperatedAndSyndicatedSearch

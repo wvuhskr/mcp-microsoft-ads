@@ -126,13 +126,22 @@ def _selftest():
     print("selftest ok")
 
 
+# macOS, Windows, Linux (Wayland, X11). Constant argv only; first one that runs wins.
+_CLIPBOARD_CMDS = (["pbpaste"], ["powershell", "-NoProfile", "-Command", "Get-Clipboard"],
+                   ["wl-paste"], ["xclip", "-o", "-selection", "clipboard"])
+
+
 def _redirect_from_clipboard():
-    try:
-        # B603/B607 false positives: constant argv, macOS clipboard read, no untrusted input
-        return subprocess.run(["pbpaste"], capture_output=True,  # nosec B603 B607
-                              text=True, timeout=10).stdout
-    except (OSError, subprocess.SubprocessError):
-        return ""
+    for cmd in _CLIPBOARD_CMDS:
+        try:
+            # B603/B607 false positives: constant argv, clipboard read, no untrusted input
+            out = subprocess.run(cmd, capture_output=True,  # nosec B603 B607
+                                 text=True, timeout=10)
+        except (OSError, subprocess.SubprocessError):
+            continue  # that tool isn't on this machine -- try the next
+        if out.returncode == 0:
+            return out.stdout
+    return ""
 
 
 def main():
@@ -180,7 +189,7 @@ def main():
     if args.url_file:
         redirect = open(args.url_file).read()
     else:
-        input("\n   Copy that whole http://localhost/... URL from the address bar (Cmd-C),"
+        input("\n   Copy that whole http://localhost/... URL from the address bar (Cmd-C / Ctrl-C),"
               "\n   then press Enter here — I'll read it from your clipboard: ")
         redirect = _redirect_from_clipboard()
     code, cb_state = extract_code_and_state(redirect)

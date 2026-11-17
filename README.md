@@ -5,11 +5,97 @@ a third-party MCP (Model Context Protocol) server for Microsoft Advertising. "MC
 the open protocol that lets an AI assistant (Claude, or any other MCP client) call
 tools against a real system — here, your Microsoft Ads account.
 
-The safety-first Microsoft Ads MCP: 47 tools covering campaign, ad group, keyword,
-negative-keyword, geo-targeting, ad-schedule, extension, media, audience, and
-conversion-goal management, plus performance reporting and Ad Insight keyword
-research — built so that giving an AI assistant write access to a live ad account
-doesn't mean giving it a blank check.
+**In plain terms:** this connects an AI assistant such as Claude to your Microsoft
+Advertising (Bing Ads) account, so you can ask questions about performance in plain
+English and, if you choose to allow it, have the assistant make changes for you. It
+starts read-only. Changes are something you switch on, and every change is previewed
+before it happens.
+
+48 tools cover reporting, keyword research, and campaign, ad group, keyword,
+negative-keyword, location, ad-schedule, extension, image, audience, and
+conversion-goal management.
+
+## What you can ask
+
+Once it is connected, talk to your assistant normally. For example:
+
+- "How did each campaign do over the last 30 days? Show spend, conversions and cost
+  per conversion."
+- "Which search terms spent money last month without converting? Check them against
+  my existing negative keyword lists and suggest only new negatives."
+- "Split last month's conversions by conversion goal for each campaign."
+- "What was my impression share last quarter, and did I lose more to budget or to rank?"
+- "Find keyword ideas for 'emergency plumber' and estimate clicks at a $12 bid."
+- "Are any ads or keywords disapproved?"
+- "Pause the ad group called Test, and show me the change before you make it."
+  (needs changes switched on, see [Turning on changes](#turning-on-changes))
+
+Every report comes back with a source note: the account, the report type, the date
+range, the columns pulled, and how conversions were counted.
+
+## Quick start
+
+You need a Microsoft Advertising account and about 20 minutes, most of it on
+Microsoft's side. All commands below go in a terminal (the Terminal app on a Mac,
+PowerShell on Windows).
+
+1. **Install uv**, a small free tool that downloads and runs this server for you. One
+   command, from <https://docs.astral.sh/uv/getting-started/installation/>.
+2. **Get two things from Microsoft**: a developer token and an "app registration".
+   [docs/setup.md](docs/setup.md) steps 2 and 3 walk through both, click by click.
+   This is the slow part, and you only do it once.
+3. **Run the guided setup.** It asks for the values from step 2, opens the Microsoft
+   sign-in, and saves everything in a private file on your computer:
+   ```bash
+   uvx --from git+https://github.com/wvuhskr/mcp-microsoft-ads mcp-microsoft-ads setup
+   ```
+4. **Connect your assistant.** Setup ends by printing a short block of text. Paste it
+   into your assistant's connector settings ([MCP client configuration](#mcp-client-configuration)
+   shows where) and restart the assistant.
+5. **Check it.** Ask the assistant: "Run a Microsoft Ads health check and list my
+   accounts." Confirm the account name and currency are the ones you expect.
+
+If the sign-in ever stops working (Microsoft asks for a fresh sign-in from time to
+time), run the same command with `reauth` in place of `setup`.
+
+## The tools
+
+You never call these by name; the assistant picks them. The list is here so you know
+what is possible.
+
+**Look, never change (always available)**
+
+| Tool | What it does |
+|---|---|
+| `health_check`, `list_accounts`, `get_account_info` | Confirm the connection and which account you are in |
+| `get_campaign_performance`, `get_ad_performance`, `get_keyword_performance` | Ready-made performance reports for the last 7, 14 or 30 days |
+| `get_search_terms` | What people actually typed before clicking |
+| `get_geo_performance` | Performance by country, state, metro area and city |
+| `run_report`, `describe_report` | Build-your-own report: any Microsoft report, any columns, any dates. `describe_report` lists what is available |
+| `get_entities` | Current settings of campaigns, ad groups, keywords, ads, asset groups, schedules and locations |
+| `get_negative_keywords` | Campaign negatives plus every shared negative list |
+| `list_extensions`, `get_conversion_actions`, `get_policy_issues` | Extensions, conversion goals, disapproved ads and keywords |
+| `discover_keywords`, `get_keyword_forecasts` | Keyword ideas and traffic estimates |
+| `search_geo_targets` | Find a location to target or exclude |
+| `list_recommendations` | Microsoft's recommendations (not available on every account) |
+
+**Make changes (only when you switch changes on; each one is previewed first)**
+
+| Tool | What it does |
+|---|---|
+| `confirm_and_apply` | Carries out a previewed change. Nothing changes without it |
+| `pause_entity`, `enable_entity`, `remove_entity` | Pause, enable or delete a campaign, ad group, keyword or ad |
+| `update_campaign`, `update_ad_group`, `update_keyword_bid` | Budget, status, target cost per conversion, manual bids |
+| `draft_campaign`, `create_pmax_campaign`, `create_portfolio_bidding_strategy` | New campaigns (always created paused) and shared bid strategies |
+| `draft_responsive_search_ad`, `draft_keywords`, `remove_keywords` | New ads and keywords (keywords created paused) |
+| `add_negative_keywords`, `remove_negative_keywords` | Negatives on a campaign, ad group or shared list; duplicates are skipped |
+| `set_campaign_schedule` | Replace a campaign's ad schedule |
+| `exclude_geo_target`, `remove_geo_target` | Location exclusions |
+| `draft_sitelinks`, `create_callouts`, `create_structured_snippets`, `remove_extension` | Ad extensions |
+| `upload_image_asset` | Add an image to the account's library |
+| `create_custom_audience`, `add_audience_targeting` | Remarketing lists and audience targeting |
+| `create_conversion_action`, `set_conversion_action_primary_status` | Conversion goals |
+| `apply_recommendation`, `dismiss_recommendation` | Act on Microsoft's recommendations (extra switch required) |
 
 ## Why "safety-first"
 
@@ -32,7 +118,7 @@ Microsoft's API:
 5. **JSONL audit log.** Every draft and every apply is appended to a local,
    append-only JSONL file — a plain-text paper trail of what this server actually did.
 
-Backed by 380+ offline tests (no live API calls) that exercise the rails, the SOAP
+Backed by 420+ offline tests (no live API calls) that exercise the rails, the SOAP
 plumbing quirks, and the draft/confirm lifecycle against fakes.
 
 ### Be honest about what "draft → confirm" is *not*
@@ -86,10 +172,12 @@ Comparison last checked 2026-08-24. This project doesn't claim to know the exact
 current feature set of the other rows
 beyond what's read-only vs. not — check each project's own repo/docs for details. The
 differentiators above (opt-in writes, two-phase draft→confirm, spend ceilings,
-Smart-Bidding fail-closed guards, JSONL audit log, 380+ offline tests) are what this
+Smart-Bidding fail-closed guards, JSONL audit log, 420+ offline tests) are what this
 project is built around.
 
-## Install
+## Install for development
+
+Most people should use the [Quick start](#quick-start) instead. To work on the code:
 
 ```bash
 git clone https://github.com/wvuhskr/mcp-microsoft-ads.git
@@ -98,9 +186,7 @@ python3 -m venv .venv  # requires Python >= 3.12
 .venv/bin/pip install -e ".[dev]"
 ```
 
-Full setup — Azure app registration, developer token, first OAuth sign-in — is in
-[docs/setup.md](docs/setup.md). This section only covers running the server once
-credentials already exist.
+In a clone, `.venv/bin/mcp-microsoft-ads setup` runs the same guided setup.
 
 ### Credentials
 
@@ -131,62 +217,64 @@ unchanged, including image metadata, so use assets intended for advertising.
 
 ### Supported tool library versions
 
-The Model Context Protocol (MCP) library must be at least 1.28.1 and below 3.
+The Model Context Protocol (MCP) library must be at least 1.30.0 and below 3.
 The automated checks test the oldest supported version and the current version.
 Intentional safety refusals and partial-write warnings remain visible to the
 assistant in both library generations; unexpected errors retain the library's
 normal handling.
 
-### First-run walkthrough
+## Turning on changes
 
-1. **Bootstrap sign-in:**
-   ```bash
-   .venv/bin/python -m mcp_microsoft_ads.reauth
-   ```
-   Walks an interactive OAuth sign-in in your browser and writes the resulting
-   `refresh_token` into the credentials file. See `docs/setup.md` for the Azure app
-   registration and developer token this step depends on.
-2. **Start the server read-only** (don't set `MS_ADS_ENABLE_WRITES` yet) and, from
-   your MCP client, call `health_check`, then `list_accounts` and/or
-   `get_account_info`.
-3. **Confirm the account is the one you mean** — check the account ID, account name,
-   and account currency returned by those calls against the account you intend to
-   let this server touch. The spend ceilings below are enforced in that account's
-   currency, so a currency mismatch is worth catching before writes are ever on.
-4. **Only then** set `MS_ADS_ENABLE_WRITES=true` (and, if you want it,
-   `MS_ADS_ALLOW_APPLY_RECOMMENDATION=true`) and restart the server.
+Out of the box the server can only look. To let the assistant make changes:
+
+1. **Confirm the account first.** While still read-only, have the assistant run
+   `health_check`, then `list_accounts` and `get_account_info`. Check the account ID,
+   name and currency against the account you mean. The spending limits below are
+   enforced in that account's currency.
+2. **Add the switch** to the connector block (see the next section) and restart the
+   assistant: `MS_ADS_ENABLE_WRITES` set to `true`. Optionally lower the spending
+   limits `MS_ADS_MAX_DAILY_BUDGET` and `MS_ADS_MAX_CPC` to fit your account.
+3. **Optional house rules.** Copy [advertiser.example.yaml](advertiser.example.yaml) to
+   `~/.mcp-microsoft-ads/advertiser.yaml` to ban words from ad copy, set your website,
+   and keep the "no Performance Max campaign without a target" rule on.
 
 ## MCP client configuration
 
-Both configs assume the venv above lives at `~/mcp-microsoft-ads/.venv` — replace that
-with the actual absolute path on your machine (both clients need an absolute path,
-not `~`).
+This is the block the guided setup prints. It tells your assistant how to start the
+server.
 
-**Claude Code** (`.mcp.json` in your project, or via `claude mcp add`):
-
-```json
-{
-  "mcpServers": {
-    "microsoft-ads": {
-      "command": "/home/you/mcp-microsoft-ads/.venv/bin/python",
-      "args": ["-m", "mcp_microsoft_ads.server"]
-    }
-  }
-}
-```
-
-**Claude Desktop** (`claude_desktop_config.json`):
+**Claude Desktop**: Settings > Developer > Edit Config opens
+`claude_desktop_config.json`. **Claude Code**: put it in `.mcp.json` in your project.
 
 ```json
 {
   "mcpServers": {
     "microsoft-ads": {
-      "command": "/home/you/mcp-microsoft-ads/.venv/bin/python",
-      "args": ["-m", "mcp_microsoft_ads.server"]
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/wvuhskr/mcp-microsoft-ads", "mcp-microsoft-ads"]
     }
   }
 }
 ```
+
+With changes switched on, the same block gains an `env` section:
+
+```json
+{
+  "mcpServers": {
+    "microsoft-ads": {
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/wvuhskr/mcp-microsoft-ads", "mcp-microsoft-ads"],
+      "env": { "MS_ADS_ENABLE_WRITES": "true", "MS_ADS_MAX_DAILY_BUDGET": "500" }
+    }
+  }
+}
+```
+
+If your assistant reports it cannot find `uvx`, replace `"uvx"` with the full path
+that `which uvx` (Mac/Linux) or `where uvx` (Windows) prints in a terminal. Working
+from a clone instead: use `"command": "/full/path/to/mcp-microsoft-ads/.venv/bin/mcp-microsoft-ads"`
+with no `args`.
 
 ### Don't point two concurrent clients at the same credentials file
 
@@ -221,7 +309,7 @@ ceiling means 1000 units of whatever currency the account is denominated in.
 ## Test / lint
 
 ```bash
-.venv/bin/python -m pytest -q     # offline test suite, ~370 tests, no live API calls
+.venv/bin/python -m pytest -q     # offline test suite, 420+ tests, no live API calls
 .venv/bin/python -m ruff check .  # lint
 ```
 
@@ -229,6 +317,7 @@ ceiling means 1000 units of whatever currency the account is denominated in.
 
 - [docs/setup.md](docs/setup.md) — Azure app registration, developer token, full
   bootstrap.
+- [advertiser.example.yaml](advertiser.example.yaml) — optional house rules, with comments.
 - [SECURITY.md](SECURITY.md) — how to report a vulnerability.
 - [CHANGELOG.md](CHANGELOG.md) — release history.
 

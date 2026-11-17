@@ -25,3 +25,8 @@ credentials.yml
 tokens.json
 refresh_token*
 *.bak
+
+# Python build artifacts
+dist/
+build/
+*.egg-info/
