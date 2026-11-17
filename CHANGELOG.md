@@ -33,6 +33,13 @@ Built for marketers, not only developers.
 - The ready-made reports failed for 14 and 30 days (30 is the default): the server
   sent period names the API rejects. Now `Last14Days` / `Last30Days`.
 
+### Fixed
+
+- Several assistant sessions sharing one credentials file no longer break each other:
+  a token rotation now replaces whatever token another session already wrote, instead
+  of refusing because it differs from the one in memory. Only a file with no usable
+  token is refused.
+
 ### Changed
 
 - README rewritten around what a marketer can ask, a five-step quick start, and a
