@@ -100,13 +100,14 @@ def test_token_rotation_changes_only_token_field(tmp_path):
         "refresh_token": "NEW", "client_secret": "prefix-OLD-suffix"}
 
 
-def test_token_rotation_refuses_stale_token_found_in_other_field(tmp_path):
+def test_stale_token_matching_other_field_never_touches_that_field(tmp_path):
+    # Shared-file case: another process already rotated the token on disk (CURRENT),
+    # and our stale in-memory token happens to equal another field's value. The
+    # rotation lands on the refresh_token field only.
     p = tmp_path / "credentials.yaml"
-    content = 'refresh_token: CURRENT\nclient_secret: OLD\n'
-    p.write_text(content)
-    with pytest.raises(auth.CredsError, match="refusing"):
-        auth.persist_rotated_token("OLD", "NEW", str(p))
-    assert p.read_text() == content
+    p.write_text('refresh_token: CURRENT\nclient_secret: OLD\n')
+    assert auth.persist_rotated_token("OLD", "NEW", str(p)) is True
+    assert yaml.safe_load(p.read_text()) == {"refresh_token": "NEW", "client_secret": "OLD"}
 
 
 @pytest.mark.parametrize("bad", ["Deleted", "Bogus", ""])

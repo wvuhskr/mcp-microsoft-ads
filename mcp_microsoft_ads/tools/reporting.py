@@ -117,6 +117,9 @@ def run_report(report_type: str, columns: list[str], days: int = 30,
     - Whole account: AccountPerformanceReportRequest with AccountName, CurrencyCode.
     - Performance Max asset groups: AssetGroupPerformanceReportRequest.
     - Age and gender: AgeGenderAudienceReportRequest with AgeGroup, Gender.
+    Goal / GoalType cannot share a report with impression-share columns (the API
+    faults RestrictedColumnCombinations, 2064) — run those as two reports. Recipes
+    live-verified 2026-11-17.
 
     aggregation: "Daily" (default) works with any column set; Weekly / Monthly /
     DayOfWeek / HourOfDay also need the TimePeriod column. "Summary" is only valid when

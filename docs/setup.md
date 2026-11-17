@@ -233,9 +233,9 @@ wires a callback (`_on_refresh`) into every SDK refresh that calls
 
 - reads the credentials file fully before opening any write handle (never truncates it
   first),
-- refuses to run if the token it's about to replace isn't actually present in the file
-  (a stale/already-rotated token in memory would otherwise silently no-op or corrupt
-  the file),
+- replaces only the `refresh_token` field's value, whatever token is currently there
+  (another session may have rotated it first), and refuses only when the file holds
+  no usable token at all,
 - backs up the file to `<path>.bak` (`chmod 0600`) before writing,
 - writes the replacement atomically (`tempfile` + `os.replace`) and `chmod 0600`.
 
@@ -245,14 +245,11 @@ process, out of band, on every use":
 - **File permissions are `0600` / directory `0700`** — the refresh token is a live
   bearer credential to your ad account, rewritten automatically, so both the file and
   its parent directory are kept private to your user by every writer.
-- **One client per credentials file.** If two MCP clients (say, Claude Code and Claude
-  Desktop) point at the same credentials file at the same time, one client's refresh
-  can invalidate the token the other client is still holding in memory, and there's no
-  cross-process locking at this layer to prevent that race. If you want more than one
-  concurrent client, give each one its own credentials file (`MS_ADS_CREDENTIALS_PATH`
-  set differently per client) and run this bootstrap once per file. (Same rule stated
-  from the running-server side in the README's "Don't point two concurrent clients at
-  the same credentials file" section.)
+- **Several sessions can share the file.** Each open assistant session runs its own
+  server process. When another process has already rotated the token on disk, this
+  one's rotation replaces it instead of refusing: Microsoft does not revoke earlier
+  refresh tokens on rotation, so whichever token is on disk works. (Same point from
+  the running-server side: the README's "Several assistant sessions at once".)
 
 ## 8. Verify it worked
 

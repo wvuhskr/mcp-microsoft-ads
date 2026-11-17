@@ -276,17 +276,15 @@ that `which uvx` (Mac/Linux) or `where uvx` (Windows) prints in a terminal. Work
 from a clone instead: use `"command": "/full/path/to/mcp-microsoft-ads/.venv/bin/mcp-microsoft-ads"`
 with no `args`.
 
-### Don't point two concurrent clients at the same credentials file
+### Several assistant sessions at once
 
-**Sharing one credentials file between concurrent clients is unsupported.** The
-`refresh_token` is a rotating, shared, mutable file: every refresh mints a new token
-and immediately invalidates the old one, and the read-modify-write that persists the
-rotation can't be safely serialized across two separate processes at this layer. Two
-clients racing to refresh from the same file can strand each other with an
-invalidated token. If you want more than one concurrent client (e.g. Claude Code and
-Claude Desktop open at once), give each one its own credentials file and its own Azure
-app registration — set `MS_ADS_CREDENTIALS_PATH` differently per client and bootstrap
-each with its own `reauth` run.
+Each open assistant session starts its own copy of this server, and they can all share
+one credentials file on the same computer. Microsoft issues a new `refresh_token` on
+each refresh but does not revoke the earlier ones when it does
+([Microsoft's refresh-token documentation](https://learn.microsoft.com/en-us/entra/identity-platform/refresh-tokens)),
+so when two sessions refresh close together the newer token simply replaces the other
+on disk. Each write is atomic, so the file always holds one complete, working token.
+A file with no usable token at all is still refused rather than overwritten.
 
 ## Environment variables
 

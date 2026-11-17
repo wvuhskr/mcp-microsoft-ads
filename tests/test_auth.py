@@ -132,10 +132,24 @@ def test_persist_noop_when_same(creds_file):
     assert auth.persist_rotated_token("OLDTOKEN", None, creds_file) is False
     assert "OLDTOKEN" in open(creds_file).read()
 
-def test_persist_refuses_when_old_absent(creds_file):
+def test_persist_replaces_token_rotated_by_another_process(creds_file):
+    """Several server processes share one creds file. When another process has
+    already rotated the token on disk, ours no longer matches; the newest rotation
+    must still land instead of failing every later call."""
+    assert auth.persist_rotated_token("STALE-IN-MEMORY", "NEWTOKEN", creds_file) is True
+    raw = open(creds_file).read()
+    assert "NEWTOKEN" in raw and "OLDTOKEN" not in raw
+    assert auth.load_creds(creds_file)["client_secret"] == "sekret"  # rest intact
+    assert open(creds_file + ".bak").read() == VALID
+
+def test_persist_refuses_when_file_has_no_token(tmp_path):
+    p = tmp_path / "c.yaml"
+    body = VALID.replace('refresh_token: "OLDTOKEN"', "refresh_token: ''")
+    assert body != VALID
+    p.write_text(body)
     with pytest.raises(auth.CredsError, match="refusing"):
-        auth.persist_rotated_token("NOT-IN-FILE", "NEW", creds_file)
-    assert open(creds_file).read() == VALID  # untouched
+        auth.persist_rotated_token("NOT-IN-FILE", "NEW", str(p))
+    assert p.read_text() == body  # untouched
 
 def test_persist_rotated_token_refuses_blank_old(creds_file):
     """Discriminating for the blank-refresh_token-destroys-the-file defect: pre-fix,

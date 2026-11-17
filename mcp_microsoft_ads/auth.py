@@ -211,7 +211,11 @@ def persist_rotated_token(old: str, new: str | None, path: str | None = None) ->
     except (UnicodeError, OSError):
         raise CredsError(f"{path}: unable to read credentials file") from None
     current = _parse_creds(raw, path)
-    if current.get("refresh_token") != old:
+    if current.get("refresh_token") != old and _blank_rt(current.get("refresh_token")):
+        # A different non-blank token on disk means another server process sharing
+        # this file already rotated it (each open assistant session runs its own
+        # server); the newest rotation (ours) replaces theirs below. Only a file
+        # with no usable token at all is refused.
         raise CredsError("active refresh_token not present in creds file; refusing to overwrite")
     # Replace exactly the YAML value, preserving other fields and comments. A
     # token may also occur in another credential, so raw.replace(old, new) is unsafe.
