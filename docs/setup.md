@@ -165,6 +165,11 @@ tenant: "common"
 
 ## 6. Bootstrap sign-in
 
+**Shortcut:** `mcp-microsoft-ads setup` (see the README Quick start) asks for the six
+values from step 5, writes the file for you, and then runs this sign-in. The rest of
+this section describes what happens under the hood and how to run the sign-in alone
+(`mcp-microsoft-ads reauth`, or the `python -m` form below from a clone).
+
 Once the six static fields are in place (env vars, the file, or a mix), run:
 
 ```bash
@@ -187,10 +192,12 @@ This is the exact flow the code runs (`mcp_microsoft_ads/reauth.py`, `main()`):
 4. **Getting that URL into the tool**: the URL is roughly 1.2 KB, too long to paste
    into most terminals (macOS's terminal driver caps a single line of input around 1
    KB and will just refuse the rest / beep). So:
-   - **On macOS**, the default path: copy the URL (Cmd-C from the address bar), then
-     press Enter at the prompt — the tool reads the clipboard itself via `pbpaste`, you
-     don't paste into the terminal at all.
-   - **On Windows or Linux** (no `pbpaste`), use the file fallback instead: paste the
+   - The default path: copy the URL from the address bar, then press Enter at the
+     prompt — the tool reads the clipboard itself (`pbpaste` on macOS, PowerShell
+     `Get-Clipboard` on Windows, `wl-paste` or `xclip` on Linux), you don't paste into
+     the terminal at all. The macOS path is the one exercised live; the others are
+     covered by offline tests only.
+   - **If the clipboard can't be read**, use the file fallback instead: paste the
      full redirect URL into any text file, then run:
      ```bash
      .venv/bin/python -m mcp_microsoft_ads.reauth --url-file /path/to/that/file.txt

@@ -2,7 +2,7 @@
 
 Covers what unit tests structurally can't: tests import tool modules directly, so a
 tool module dropped from server.py's import list (= silently missing over the wire,
-exactly what a 47-tool MCP registration bug looks like) would break nothing else.
+exactly what a 48-tool MCP registration bug looks like) would break nothing else.
 """
 import pytest
 
@@ -11,9 +11,9 @@ from mcp_microsoft_ads.app import mcp
 from mcp_microsoft_ads.tools.confirm import confirm_and_apply
 
 
-def test_all_47_tools_registered():
+def test_all_48_tools_registered():
     tools = mcp._tool_manager._tools
-    assert len(tools) == 47, f"expected 47 registered tools, got {len(tools)}: {sorted(tools)}"
+    assert len(tools) == 48, f"expected 48 registered tools, got {len(tools)}: {sorted(tools)}"
     assert "confirm_and_apply" in tools
 
 

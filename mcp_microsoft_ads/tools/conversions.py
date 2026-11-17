@@ -33,7 +33,7 @@ def create_conversion_action(name: str, goal_type: str = "Event", value: float |
     - Duration: minimum_duration_seconds
     goal_category (ConversionGoalCategory enum) is REQUIRED live even though the WSDL marks
     it optional — omitting it faults "InvalidGoalCategory" (3347). Defaults to "Other", the
-    only value live-verified valid across all three goal types (Task 25e probe); PageView
+    only value live-verified valid across all three goal types (live probe); PageView
     also works on Url/Event but faults InvalidCategoryForGoalType (3349) on Duration. A
     category already claimed by an ACTIVE MS auto-created goal on the same UET tag faults
     SameCategoryAndTagNotAllowedForAutoGoalAndManualGoal (5667) — observed on Url goals only;
@@ -44,7 +44,7 @@ def create_conversion_action(name: str, goal_type: str = "Event", value: float |
     NOTE: OfflineConversion goals are deliberately not created by this tool — create them
     in the MS Ads UI instead — because accounts that feed offline conversions from an
     external upload pipeline risk double-counting.
-    ONE-WAY DOOR (Task 25f): there is no DeleteConversionGoals operation on this API
+    ONE-WAY DOOR: there is no DeleteConversionGoals operation on this API
     (verified against the WSDL — every other entity family has a Delete*, this one
     doesn't) and UpdateConversionGoals(Status="Deleted") silently no-ops (partial_errors=[],
     goal reads back Active still) — so a created goal cannot be deleted. The only real

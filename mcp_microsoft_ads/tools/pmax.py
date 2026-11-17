@@ -122,7 +122,7 @@ def create_pmax_campaign(name: str, daily_budget: float, final_url: str,
     defaults to EasternTimeUSCanada (US-centric default) — override for other markets.
     target_cpa is required by default (require_pmax_target_cpa setting, default true) —
     never create PMax without a target; removing one later explodes impressions (hard
-    rule observed on the owner's Google Ads account). Set require_pmax_target_cpa
+    rule observed on a live Google Ads account). Set require_pmax_target_cpa
     false in advertiser settings to allow a no-target MaxConversions campaign instead.
     Images are REQUIRED (upload via upload_image_asset first). Each image_media_ids
     entry must already be in the account media library with MediaType Image1x1 or
