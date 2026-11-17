@@ -55,6 +55,9 @@ Built for marketers, not only developers.
 - Do not retain an applicable draft when recording its preview fails.
 - Add dependency vulnerability scanning and an oldest-supported-MCP test job to
   automated checks. These changes have been verified offline, not against live ads.
+- Minimum MCP library raised from 1.28.1 to 1.30.0: versions below 1.30.0 carry
+  known vulnerabilities (CVE-2026-59951, CVE-2026-116684, CVE-2026-116685,
+  CVE-2026-116686).
 
 ## [1.0.1] - 2026-08-24
 

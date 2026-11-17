@@ -217,7 +217,7 @@ unchanged, including image metadata, so use assets intended for advertising.
 
 ### Supported tool library versions
 
-The Model Context Protocol (MCP) library must be at least 1.28.1 and below 3.
+The Model Context Protocol (MCP) library must be at least 1.30.0 and below 3.
 The automated checks test the oldest supported version and the current version.
 Intentional safety refusals and partial-write warnings remain visible to the
 assistant in both library generations; unexpected errors retain the library's

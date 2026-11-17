@@ -18,7 +18,7 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Topic :: Office/Business :: Financial",
 ]
-dependencies = ["bingads==13.0.29", "mcp>=1.28.1,<3", "pyyaml>=6.0.3", "pillow>=12.3.0"]
+dependencies = ["bingads==13.0.29", "mcp>=1.30.0,<3", "pyyaml>=6.0.3", "pillow>=12.3.0"]
 
 [project.urls]
 Homepage = "https://github.com/wvuhskr/mcp-microsoft-ads"
