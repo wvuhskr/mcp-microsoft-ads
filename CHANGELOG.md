@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
-## [1.1.0] - Unreleased
+## [1.1.0] - 2026-11-17
 
 Built for marketers, not only developers.
 
@@ -17,8 +17,8 @@ Built for marketers, not only developers.
   existing credentials file.
 - One-line run with no clone: `uvx --from git+https://github.com/wvuhskr/mcp-microsoft-ads
   mcp-microsoft-ads`. Packaging metadata and a secretless PyPI release workflow
-  (trusted publishing, triggered on `v*` tags) are in place; nothing has been
-  published to PyPI yet.
+  (trusted publishing, triggered on `v*` tags) are in place. Published to PyPI on
+  2026-11-19: `uvx mcp-microsoft-ads setup`.
 - `describe_report` tool (48 tools total): lists every report type and its valid
   column names, read offline from the API definition shipped with the SDK, so
   `run_report` no longer requires knowing Microsoft's internal names.

@@ -47,8 +47,9 @@ PowerShell on Windows).
 3. **Run the guided setup.** It asks for the values from step 2, opens the Microsoft
    sign-in, and saves everything in a private file on your computer:
    ```bash
-   uvx --from git+https://github.com/wvuhskr/mcp-microsoft-ads mcp-microsoft-ads setup
+   uvx mcp-microsoft-ads setup
    ```
+   This installs the package from [PyPI](https://pypi.org/project/mcp-microsoft-ads/).
 4. **Connect your assistant.** Setup ends by printing a short block of text. Paste it
    into your assistant's connector settings ([MCP client configuration](#mcp-client-configuration)
    shows where) and restart the assistant.
