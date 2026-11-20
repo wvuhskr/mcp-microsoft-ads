@@ -39,6 +39,7 @@ def main():
         from . import reauth
         sys.exit(reauth.main())
     settings.load()  # loud failure on a bad advertiser.yaml, before serving starts
+    settings.announce_account_caps()
     mcp.run()
 
 

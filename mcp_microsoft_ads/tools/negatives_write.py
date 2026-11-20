@@ -2,7 +2,7 @@
 Blocklist NOT applied here — negating a settings-blocked term is desired, only
 *advertising* it is blocked (see keywords_write.draft_keywords)."""
 from .. import client, rails
-from ..app import mcp
+from ..accounts import account_tool
 
 _ENTITY = {"campaign": "Campaign", "ad_group": "AdGroup"}
 _SCOPES = set(_ENTITY) | {"shared_list"}
@@ -46,7 +46,7 @@ def _negative_keyword(svc, text: str | None = None, match_type: str | None = Non
     return nk
 
 
-@mcp.tool()
+@account_tool()
 def add_negative_keywords(scope: str, entity_id: int, keywords: list[dict],
                           campaign_id: int | None = None) -> dict:
     """Draft negatives. scope: campaign | ad_group | shared_list. keywords:
@@ -97,7 +97,7 @@ def add_negative_keywords(scope: str, entity_id: int, keywords: list[dict],
                                "skipped_existing": skipped}, apply)
 
 
-@mcp.tool()
+@account_tool()
 def remove_negative_keywords(scope: str, entity_id: int, keyword_ids: list[int],
                              campaign_id: int | None = None) -> dict:
     """Draft negative removal by id. scope: campaign | ad_group | shared_list.

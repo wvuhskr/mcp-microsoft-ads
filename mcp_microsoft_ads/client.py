@@ -1,12 +1,39 @@
 """Single choke point for MS API access. Tools never construct ServiceClient
-themselves — tests monkeypatch svc()."""
-from bingads import ServiceClient
+themselves — tests monkeypatch svc().
+
+Which account a call runs in: the configured one (credentials file) unless an Account is
+active for the current tool call (see use()). Every other account gets its OWN
+AuthorizationData and service clients; the configured account's objects are never
+mutated, because tools can run in threads and a shared header would leak one client's
+call into another client's account."""
+import contextlib
+import contextvars
+from dataclasses import dataclass
+
+from bingads import AuthorizationData, ServiceClient
 
 from . import auth
 
 _AUTH = None
 _CREDS = None
 _SERVICES = {}
+_AUTHS = {}
+
+
+@dataclass(frozen=True)
+class Account:
+    """An account a tool call runs in. source: 'explicit' (the call named it) or 'pick'
+    (use_account). name/number/currency are known only when it came from the account list."""
+    id: int
+    customer_id: int
+    name: str | None = None
+    number: str | None = None
+    currency: str | None = None
+    source: str = "explicit"
+
+
+_ACTIVE: contextvars.ContextVar = contextvars.ContextVar("active_account", default=None)
+_IN_CALL: contextvars.ContextVar = contextvars.ContextVar("account_chosen", default=False)
 
 
 def reset():
@@ -14,6 +41,7 @@ def reset():
     _AUTH = None
     _CREDS = None
     _SERVICES.clear()
+    _AUTHS.clear()
 
 
 def _authorization():
@@ -28,24 +56,75 @@ def creds() -> dict:
     return _CREDS
 
 
-def authorization():
-    return _authorization()
+def active() -> Account | None:
+    """The account this tool call named or picked; None means the configured account."""
+    return _ACTIVE.get()
 
 
-def account_id() -> int:
+@contextlib.contextmanager
+def use(account: Account | None):
+    """Run a block in `account` (None = the configured account), then restore."""
+    token, flag = _ACTIVE.set(account), _IN_CALL.set(True)
+    try:
+        yield account
+    finally:
+        _IN_CALL.reset(flag)
+        _ACTIVE.reset(token)
+
+
+def in_call() -> bool:
+    """True inside use(): the account for this tool call has already been chosen (even
+    when the choice is the configured account), so nothing may choose it again."""
+    return _IN_CALL.get()
+
+
+def default_account_id() -> int:
     return int(creds()["account_id"])
 
 
-def customer_id() -> int:
+def default_customer_id() -> int:
     return int(creds()["customer_id"])
 
 
+def account_id() -> int:
+    acct = _ACTIVE.get()
+    return acct.id if acct is not None else default_account_id()
+
+
+def customer_id() -> int:
+    acct = _ACTIVE.get()
+    return acct.customer_id if acct is not None else default_customer_id()
+
+
+def _other() -> Account | None:
+    """The active account when it is not simply the configured one."""
+    acct = _ACTIVE.get()
+    return acct if acct is not None and acct.id != default_account_id() else None
+
+
+def authorization():
+    base = _authorization()
+    acct = _other()
+    if acct is None:
+        return base
+    key = (acct.id, acct.customer_id)
+    if key not in _AUTHS:
+        # Same sign-in (shared authentication object, so token refreshes are shared),
+        # different account headers.
+        _AUTHS[key] = AuthorizationData(account_id=acct.id, customer_id=acct.customer_id,
+                                        developer_token=base.developer_token,
+                                        authentication=base.authentication)
+    return _AUTHS[key]
+
+
 def svc(name: str):
-    if name not in _SERVICES:
-        _SERVICES[name] = ServiceClient(service=name, version=13,
-                                        authorization_data=_authorization(),
-                                        environment="production")
-    return _SERVICES[name]
+    acct = _other()
+    key = (name, None) if acct is None else (name, acct.id, acct.customer_id)
+    if key not in _SERVICES:
+        _SERVICES[key] = ServiceClient(service=name, version=13,
+                                       authorization_data=authorization(),
+                                       environment="production")
+    return _SERVICES[key]
 
 
 def blank(svc_obj, type_name: str):

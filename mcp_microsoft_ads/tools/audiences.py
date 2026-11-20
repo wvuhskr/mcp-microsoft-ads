@@ -3,7 +3,8 @@ UET tag (GetUetTagsByIds) — errors clearly if none exists. All write payloads 
 client.blank()-built factory objects (bare SimpleNamespace fails suds enum
 serialization live — Task 23 binding deviation)."""
 from .. import client, rails, settings
-from ..app import mcp
+from ..accounts import account_tool
+from .conversions import uet_tag_id
 
 
 def _resolve_url_contains(url_contains: str | None) -> str:
@@ -22,7 +23,7 @@ def _resolve_url_contains(url_contains: str | None) -> str:
     return domain
 
 
-@mcp.tool()
+@account_tool()
 def create_custom_audience(name: str, description: str, membership_duration_days: int = 30,
                           url_contains: str | None = None) -> dict:
     """Draft a remarketing list targeting site visitors (needs the account's UET tag;
@@ -34,10 +35,7 @@ def create_custom_audience(name: str, description: str, membership_duration_days
     Live-verified 2026-07-30."""
     resolved_url = _resolve_url_contains(url_contains)
     svc = client.svc("CampaignManagementService")
-    tags = client.as_list(getattr(getattr(svc.GetUetTagsByIds(TagIds=None), "UetTags", None), "UetTag", None))
-    if not tags:
-        raise ValueError("no UET tag on the account — create one in MS Ads UI first")
-    tag_id = tags[0].Id
+    tag_id = uet_tag_id(svc)
 
     def apply():
         item = client.blank(svc, "StringRuleItem")
@@ -77,7 +75,7 @@ def create_custom_audience(name: str, description: str, membership_duration_days
                                "uet_tag_id": tag_id, "url_contains": resolved_url}, apply)
 
 
-@mcp.tool()
+@account_tool()
 def add_audience_targeting(campaign_id: int, audience_id: int,
                            audience_type: str = "RemarketingList",
                            bid_adjustment_pct: float | None = None) -> dict:

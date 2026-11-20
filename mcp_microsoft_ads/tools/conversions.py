@@ -2,7 +2,7 @@
 is polymorphic (concrete subtype per goal_type, WSDL-verified) so the factory type
 name and the Type discriminator both vary with goal_type."""
 from .. import client, rails
-from ..app import mcp
+from ..accounts import account_tool
 
 # goal_type (ConversionGoalType enum value) -> concrete factory type name.
 # InStoreTransaction faults on this account (pilot not enabled); AppDownload untested,
@@ -18,7 +18,23 @@ _GOAL_CATEGORIES = {"Unknown", "None", "Purchase", "AddToCart", "BeginCheckout",
                     "GetDirections", "OutboundClick", "Contact", "PageView", "Download", "Other"}
 
 
-@mcp.tool()
+def uet_tag_id(svc) -> int:
+    """The tracking (UET) tag a new goal or remarketing list is built on: the first one
+    Microsoft returns. Tags belong to the customer, which several client accounts can
+    share, so in any account other than the configured one a choice between several tags
+    is refused rather than guessed (it could be another client's tag)."""
+    tags = client.as_list(getattr(getattr(svc.GetUetTagsByIds(TagIds=None), "UetTags", None), "UetTag", None))
+    if not tags:
+        raise ValueError("no UET tag on the account — create one in MS Ads UI first")
+    if len(tags) > 1 and client.account_id() != client.default_account_id():
+        raise rails.RailViolation(
+            f"TAG_AMBIGUOUS: account {client.account_id()} can see {len(tags)} tracking (UET) "
+            "tags and this server cannot tell which one is this client's. Create this in the "
+            "Microsoft Ads screens instead.")
+    return tags[0].Id
+
+
+@account_tool()
 def create_conversion_action(name: str, goal_type: str = "Event", value: float | None = None,
                              url_expression: str | None = None,
                              action_expression: str | None = None,
@@ -73,10 +89,7 @@ def create_conversion_action(name: str, goal_type: str = "Event", value: float |
         raise ValueError(f"goal_category must be one of {sorted(_GOAL_CATEGORIES)}, got '{goal_category}'")
 
     svc = client.svc("CampaignManagementService")
-    tags = client.as_list(getattr(getattr(svc.GetUetTagsByIds(TagIds=None), "UetTags", None), "UetTag", None))
-    if not tags:
-        raise ValueError("no UET tag on the account — create one in MS Ads UI first")
-    tag_id = tags[0].Id
+    tag_id = uet_tag_id(svc)
 
     def apply():
         goal = client.blank(svc, _GOAL_CLASS[goal_type])
@@ -114,7 +127,7 @@ def create_conversion_action(name: str, goal_type: str = "Event", value: float |
                                "goal_category": goal_category}, apply)
 
 
-@mcp.tool()
+@account_tool()
 def set_conversion_action_primary_status(campaign_id: int, goal_id: int, primary: bool) -> dict:
     """Draft a campaign-goal association. MS models 'primary for this campaign' as a
     campaign conversion goal association (associate = campaign optimizes to it;

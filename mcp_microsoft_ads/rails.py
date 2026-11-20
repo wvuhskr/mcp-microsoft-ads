@@ -7,7 +7,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Callable
 
-from . import audit, settings
+from . import accounts, audit, client, settings
 from .app import ToolError
 
 SMART_BIDDING = {"MaxConversions", "MaxConversionValue", "TargetCpa", "TargetRoas"}
@@ -82,13 +82,22 @@ def max_daily_budget() -> float:
     # Cap is in the account's currency (not USD) -- Microsoft Ads accounts are not
     # all USD-denominated, and this cap compares directly against amounts read from
     # the account's own budget/bid fields. Default 1000, owner decision (unchanged).
-    return parse_positive_float_env("MS_ADS_MAX_DAILY_BUDGET", 1000)
+    # An account with its own limits in advertiser.yaml uses those instead.
+    own = settings.cap("max_daily_budget")
+    return own if own is not None else parse_positive_float_env("MS_ADS_MAX_DAILY_BUDGET", 1000)
 
 
 def max_cpc() -> float:
     # Cap is in the account's currency (not USD) -- same reasoning as max_daily_budget.
     # Default 50, owner decision (unchanged).
-    return parse_positive_float_env("MS_ADS_MAX_CPC", 50)
+    own = settings.cap("max_cpc")
+    return own if own is not None else parse_positive_float_env("MS_ADS_MAX_CPC", 50)
+
+
+def _cap_label(env_name: str) -> str:
+    """Where the limit that just refused a change is set, so the message says what to edit."""
+    source = settings.caps_source()
+    return env_name if source == "environment defaults" else source
 
 
 def parse_bool_env(name: str, default: bool = False) -> bool:
@@ -159,13 +168,15 @@ def _check_valid_amount(amount, label: str):
 def check_budget(amount: float):
     _check_valid_amount(amount, "daily budget")
     if amount > max_daily_budget():
-        raise RailViolation(f"daily budget {amount} exceeds cap {max_daily_budget()} (MS_ADS_MAX_DAILY_BUDGET)")
+        raise RailViolation(f"daily budget {amount} exceeds cap {max_daily_budget()} "
+                            f"({_cap_label('MS_ADS_MAX_DAILY_BUDGET')})")
 
 
 def check_bid(amount: float):
     _check_valid_amount(amount, "bid/tCPA")
     if amount > max_cpc():
-        raise RailViolation(f"bid/tCPA {amount} exceeds cap {max_cpc()} (MS_ADS_MAX_CPC)")
+        raise RailViolation(f"bid/tCPA {amount} exceeds cap {max_cpc()} "
+                            f"({_cap_label('MS_ADS_MAX_CPC')})")
 
 
 def check_content(texts):
@@ -245,6 +256,8 @@ class Draft:
     apply_fn: Callable[[], dict]
     validate_fn: Callable[[], None] | None = None
     created_at: float = field(default_factory=time.time)
+    account: client.Account | None = None  # None = the configured account
+    note: dict = field(default_factory=dict)  # account + limits, shown and audited
 
 
 _DRAFTS: dict[str, Draft] = {}
@@ -275,12 +288,25 @@ def create_draft(tool: str, preview: dict, apply_fn: Callable[[], dict],
     it within the TTL window. A refusal does NOT consume the draft."""
     check_writes_enabled()  # before any preview/audit side effect
     check_apply_recommendation_allowed(tool)  # second gate, same "before side effects" rule
+    # The account this draft is for is whichever one the tool call runs in. It is fixed
+    # here and carried on the draft: confirm_and_apply never chooses an account itself.
+    acct = client.active()
+    accounts.check_change_named(acct)
+    accounts.check_change_listed(acct)
+    accounts.check_limits_currency(acct)
+    note = {}
+    if accounts.several(acct):
+        # More than one account is in play: say which one, and which spend limits apply
+        # to it. Single-account setups see exactly the draft they always saw.
+        note = {"account": accounts.describe(acct),
+                "limits": {"max_daily_budget": max_daily_budget(), "max_cpc": max_cpc(),
+                           "source": settings.caps_source()}}
     _prune_expired_drafts()
     d = Draft(id=uuid.uuid4().hex[:12], tool=tool, preview=preview, apply_fn=apply_fn,
-              validate_fn=validate_fn)
-    audit.log_event(tool, "draft", {"draft_id": d.id, "preview": preview})
+              validate_fn=validate_fn, account=acct, note=note)
+    audit.log_event(tool, "draft", {"draft_id": d.id, "preview": preview, **note})
     _DRAFTS[d.id] = d
-    return {"draft_id": d.id, "dry_run": True, "preview": preview,
+    return {"draft_id": d.id, "dry_run": True, "preview": preview, **note,
             "next": f"confirm_and_apply(draft_id='{d.id}')"}
 
 
@@ -289,12 +315,17 @@ def apply_draft(draft_id: str) -> dict:
     peeked = _DRAFTS.get(draft_id)  # peek only -- the tool name is known from the draft
     if peeked is not None:
         check_apply_recommendation_allowed(peeked.tool)  # before pop, same non-consuming rule
+        # the allowed list may have changed since drafting; also before pop, non-consuming
+        accounts.check_change_listed(peeked.account)
+        with client.use(peeked.account):  # its limits may have been removed since drafting
+            accounts.check_limits_currency(peeked.account)
         if peeked.validate_fn is not None and time.time() - peeked.created_at <= draft_ttl_seconds():
             # re-run the tool's policy rails against CURRENT env + account state, still
             # before pop: a rail refusal must not consume the draft (matching the gate
             # checks above). Expired drafts skip this — the pop path below raises the
             # dedicated expired message without burning a live API call first.
-            peeked.validate_fn()
+            with client.use(peeked.account):
+                peeked.validate_fn()
     d = _DRAFTS.pop(draft_id, None)
     _prune_expired_drafts()  # sweep other stale entries while we're touching the dict
     if d is None:
@@ -309,10 +340,11 @@ def apply_draft(draft_id: str) -> dict:
             f"draft_id '{draft_id}' expired: drafted {age:.0f}s ago, TTL is {ttl:.0f}s "
             "(MS_ADS_DRAFT_TTL_SECONDS) — re-draft to retry")
     try:
-        result = d.apply_fn()
+        with client.use(d.account):  # the draft's own account, never the current pick
+            result = d.apply_fn()
     except Exception as e:
         try:
-            error_data = {"draft_id": d.id, "preview": d.preview, "error": str(e)}
+            error_data = {"draft_id": d.id, "preview": d.preview, "error": str(e), **d.note}
             if isinstance(e, PartialWriteError):
                 error_data["partial"] = e.partial
             audit.log_event(d.tool, "error", error_data)
@@ -327,8 +359,11 @@ def apply_draft(draft_id: str) -> dict:
                   file=sys.stderr)
         raise
     out = {"draft_id": d.id, "tool": d.tool, "applied": True, "result": result}
+    if "account" in d.note:
+        out["account"] = d.note["account"]
     try:
-        audit.log_event(d.tool, "apply", {"draft_id": d.id, "preview": d.preview, "result": result})
+        audit.log_event(d.tool, "apply", {"draft_id": d.id, "preview": d.preview, "result": result,
+                                          **d.note})
     except Exception as audit_exc:
         # (a) owner decision 2026-07-31: apply_fn already landed on the live account — an audit
         # failure here must not tell the caller the write failed (that invites a retry,

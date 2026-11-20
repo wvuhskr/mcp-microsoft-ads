@@ -1,4 +1,5 @@
 from .. import client
+from ..accounts import account_tool
 from ..app import mcp
 from ..reporting_core import (
     _PREDEFINED,
@@ -28,7 +29,7 @@ def _preset(key: str, days: int) -> dict:
     return _wrap(run_report_request(rtype, cols, days), rtype, days, cols)
 
 
-@mcp.tool()
+@account_tool()
 def get_campaign_performance(days: int = 30) -> dict:
     """How each campaign did, day by day: impressions, clicks, spend, conversions,
     cost per conversion, click-through rate, average cost per click.
@@ -38,7 +39,7 @@ def get_campaign_performance(days: int = 30) -> dict:
     return _preset("campaign", days)
 
 
-@mcp.tool()
+@account_tool()
 def get_ad_performance(days: int = 30) -> dict:
     """How each ad did, day by day: impressions, clicks, spend, conversions,
     click-through rate, with its campaign and ad group.
@@ -48,7 +49,7 @@ def get_ad_performance(days: int = 30) -> dict:
     return _preset("ad", days)
 
 
-@mcp.tool()
+@account_tool()
 def get_keyword_performance(days: int = 30) -> dict:
     """How each keyword did, day by day: match type, impressions, clicks, spend,
     conversions, cost per conversion, Quality Score.
@@ -58,7 +59,7 @@ def get_keyword_performance(days: int = 30) -> dict:
     return _preset("keyword", days)
 
 
-@mcp.tool()
+@account_tool()
 def get_geo_performance(days: int = 30) -> dict:
     """Where the clicks came from, day by day: country, state, metro area, city, with
     impressions, clicks, spend, conversions.
@@ -68,7 +69,7 @@ def get_geo_performance(days: int = 30) -> dict:
     return _preset("geo", days)
 
 
-@mcp.tool()
+@account_tool()
 def get_search_terms(days: int = 30) -> dict:
     """What people actually typed before clicking (search terms report), day by day,
     with the keyword that matched and impressions, clicks, spend, conversions. The usual
@@ -99,7 +100,7 @@ _AGGREGATIONS = ["Summary", "Daily", "Weekly", "Monthly", "Yearly", "Hourly", "H
                  "DayOfWeek", "WeeklyStartingMonday"]
 
 
-@mcp.tool()
+@account_tool()
 def run_report(report_type: str, columns: list[str], days: int = 30,
                aggregation: str = "Daily",
                start_date: str | None = None, end_date: str | None = None) -> dict:

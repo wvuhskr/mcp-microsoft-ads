@@ -1,7 +1,7 @@
 """Keyword writes: draft (created Paused), bid updates, deletion. Blocklist enforced
 in draft_keywords ONLY — negatives are exempt on purpose (see negatives_write)."""
 from .. import client, rails, verify
-from ..app import mcp
+from ..accounts import account_tool
 
 
 def _fetch_keyword(svc, ad_group_id: int, keyword_id: int):
@@ -22,7 +22,7 @@ def _ad_group_strategy(svc, ad_group_id: int) -> str | None:
     return client.effective_strategy(ags[0]) if ags else None
 
 
-@mcp.tool()
+@account_tool()
 def draft_keywords(ad_group_id: int, keywords: list[dict]) -> dict:
     """Draft new keywords under an ad group — created Paused. keywords:
     [{text, match_type: Broad|Phrase|Exact, bid: optional float}]. Blocklist
@@ -67,7 +67,7 @@ def draft_keywords(ad_group_id: int, keywords: list[dict]) -> dict:
                               validate_fn=check_policy)
 
 
-@mcp.tool()
+@account_tool()
 def update_keyword_bid(ad_group_id: int, keyword_id: int, bid: float) -> dict:
     """Draft a keyword CPC bid change (MS_ADS_MAX_CPC cap enforced). Allowed ONLY when the ad
     group's effective bid strategy is in the MANUAL_BIDDING allowlist (rails.py).
@@ -106,7 +106,7 @@ def update_keyword_bid(ad_group_id: int, keyword_id: int, bid: float) -> dict:
                               validate_fn=lambda: check_policy(_ad_group_strategy(svc, ad_group_id)))
 
 
-@mcp.tool()
+@account_tool()
 def remove_keywords(ad_group_id: int, keyword_ids: list[int]) -> dict:
     """Draft keyword deletion (irreversible — pause_entity is the reversible lever).
 

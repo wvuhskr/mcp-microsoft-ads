@@ -1,6 +1,6 @@
 [project]
 name = "mcp-microsoft-ads"
-version = "1.1.0"
+version = "1.2.0"
 description = "Safety-first MCP server for the Microsoft Advertising API: opt-in writes, two-phase draft/confirm, spend rails, Smart Bidding guards, audit log."
 readme = "README.md"
 requires-python = ">=3.12"

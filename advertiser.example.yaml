@@ -25,3 +25,23 @@ keyword_research:
   location_id: 190
   language: English
   network: OwnedAndOperatedAndSyndicatedSearch
+
+# Agencies: rules for one client account, keyed by its Microsoft Ads account id. Leave
+# this section out if you work in a single account. Each account may set any of:
+#   blocked_terms            ADDED to the list above for that account (never replaces it)
+#   advertiser_domain        that client's website
+#   require_pmax_target_cpa  true or false
+#   keyword_research         only the keys you set; the rest come from above
+#   max_daily_budget, max_cpc  that account's own spending limits, in ITS currency.
+#                            Set both or neither. They replace MS_ADS_MAX_DAILY_BUDGET
+#                            and MS_ADS_MAX_CPC for that account.
+# Listing an account here does not allow changes to it; that is MS_ADS_ACCOUNT_IDS.
+# accounts:
+#   123456789:
+#     advertiser_domain: client-one.example
+#     blocked_terms:
+#       - "free"
+#     max_daily_budget: 300
+#     max_cpc: 8
+#   987654321:
+#     advertiser_domain: client-two.example

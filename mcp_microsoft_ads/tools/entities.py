@@ -1,5 +1,5 @@
 from .. import client
-from ..app import mcp
+from ..accounts import account_tool
 from ..util import suds_to_dict
 
 ALL_CAMPAIGN_TYPES = "Search Shopping DynamicSearchAds Audience PerformanceMax"
@@ -38,7 +38,7 @@ def _fetch(entity: str, parent_id, ids):
     raise ValueError(f"unknown entity '{entity}'")
 
 
-@mcp.tool()
+@account_tool()
 def get_entities(entity: str, parent_id: int | None = None, ids: list[int] | None = None) -> dict:
     """Fetch entity state. entity: campaigns | ad_groups | keywords | ads | asset_groups |
     campaign_criterions. parent_id required for all but campaigns. campaign_criterions returns

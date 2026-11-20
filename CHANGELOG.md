@@ -5,6 +5,45 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+## [1.2.0] - 2026-11-20
+
+Built for agencies: several client accounts through one sign-in. A setup that works in
+one account behaves exactly as before.
+
+### Added
+
+- Every account-scoped tool takes an optional `account_id` (an account id or account
+  number). Each other account gets its own request headers; the configured account's are
+  never altered.
+- `MS_ADS_ACCOUNT_IDS`: extra accounts that changes may reach, on top of the configured
+  one. `MS_ADS_READ_SCOPE=all`: look-ups and reports may reach every account the sign-in
+  can see, while changes stay on that list.
+- `find_accounts`, `use_account`, `current_account` (51 tools total): find a client by
+  part of a name, pick the account reports use, see what can be changed where.
+- A pick applies to look-ups and reports only. Under a pick, a change that does not name
+  its account is refused (`ACCOUNT_REQUIRED`).
+- Once more than one account is in play, each draft names the account (id, name,
+  currency) and the spending limits that apply, the audit log records the account, and
+  each result names the account it came from. `confirm_and_apply` runs a draft in the
+  account it was drafted for, and re-checks that the account is still allowed.
+- `advertiser.yaml` `accounts:` section: per-account banned words (added to the shared
+  list), website, Performance Max target rule, keyword-research defaults and spending
+  limits in that account's own currency. Limits must be set as a pair.
+- The shared spending limits (`MS_ADS_MAX_DAILY_BUDGET`, `MS_ADS_MAX_CPC`) cover another
+  account only when it uses the configured account's currency. Otherwise a change there
+  is refused (`LIMITS_REQUIRED`) until the account has its own limits.
+- In any account other than the configured one, creating a conversion goal or
+  remarketing list is refused (`TAG_AMBIGUOUS`) when more than one tracking (UET) tag is
+  visible, since the first one may belong to another client.
+- A garbled `MS_ADS_ACCOUNT_IDS` or `MS_ADS_READ_SCOPE` refuses every account-scoped
+  call, including look-ups in the configured account.
+
+### Not verified live
+
+- Working in a second account has only been run against simulated responses. The
+  maintainer's sign-in reaches one account, so the live run covered the single-account
+  path and the account search only.
+
 ## [1.1.0] - 2026-11-17
 
 Built for marketers, not only developers.

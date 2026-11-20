@@ -28,6 +28,16 @@ Two-phase writes: every mutating tool returns a draft; `rails.apply_draft` /
    live verification for a path that hasn't run against the real account through THAT
    tool.
 
+## Accounts (agency use)
+
+- A tool that touches an account registers with `@account_tool()` (accounts.py), never
+  bare `@mcp.tool()`; a test fails if a new tool forgets. Inside a tool, always read
+  `client.account_id()` / `client.svc()` at call time: they follow the account the call
+  runs in. Never cache either across calls.
+- Changes: `rails.create_draft` fixes the account on the draft; `apply_draft` runs it
+  there. `confirm_and_apply` must never choose an account.
+- Second-account behaviour is NOT live-verified (see CHANGELOG 1.2.0).
+
 ## Testing
 
 - `.venv/bin/python -m pytest -q` (bare `python3` lacks bingads). 0 warnings expected —

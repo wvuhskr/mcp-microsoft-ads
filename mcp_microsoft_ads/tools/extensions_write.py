@@ -2,7 +2,7 @@
 Add-then-associate pattern: AddAdExtensions (library) -> SetAdExtensionsAssociations
 (campaign) inside one apply_fn; abort association if the library add failed."""
 from .. import client, rails
-from ..app import mcp
+from ..accounts import account_tool
 
 
 def _add_and_associate(tool: str, preview: dict, build_extensions):
@@ -53,7 +53,7 @@ def _add_and_associate(tool: str, preview: dict, build_extensions):
     return rails.create_draft(tool, preview, apply)
 
 
-@mcp.tool()
+@account_tool()
 def draft_sitelinks(campaign_id: int, sitelinks: list[dict]) -> dict:
     """Draft sitelinks on a campaign. sitelinks: [{text, url, description1?, description2?}].
     Copy claims must be site-verified (the advertiser's website).
@@ -88,7 +88,7 @@ def draft_sitelinks(campaign_id: int, sitelinks: list[dict]) -> dict:
                               {"campaign_id": campaign_id, "sitelinks": sitelinks}, build)
 
 
-@mcp.tool()
+@account_tool()
 def create_callouts(campaign_id: int, texts: list[str]) -> dict:
     """Draft callout extensions (max 25 chars each).
 
@@ -114,7 +114,7 @@ def create_callouts(campaign_id: int, texts: list[str]) -> dict:
     return _add_and_associate("create_callouts", {"campaign_id": campaign_id, "texts": texts}, build)
 
 
-@mcp.tool()
+@account_tool()
 def create_structured_snippets(campaign_id: int, header: str, values: list[str]) -> dict:
     """Draft a structured snippet (header must be an MS-supported header, e.g. 'Services';
     3+ values required).
@@ -141,7 +141,7 @@ def create_structured_snippets(campaign_id: int, header: str, values: list[str])
                               {"campaign_id": campaign_id, "header": header, "values": values}, build)
 
 
-@mcp.tool()
+@account_tool()
 def remove_extension(extension_id: int, campaign_id: int) -> dict:
     """Draft removal: disassociate from campaign, then delete from library.
 

@@ -2,7 +2,7 @@
 from types import SimpleNamespace
 
 from .. import client, rails, verify
-from ..app import mcp
+from ..accounts import account_tool
 from .adgroups_write import _fetch_ad_group
 from .campaigns_write import _fetch_campaign
 
@@ -82,7 +82,7 @@ def _flip(entity_type: str, entity_id: int, parent_id, new_status: str) -> dict:
                                "changes": {"Status": {"before": before, "after": new_status}}}, apply)
 
 
-@mcp.tool()
+@account_tool()
 def pause_entity(entity_type: str, entity_id: int, parent_id: int | None = None) -> dict:
     """Draft a pause. entity_type: campaign | ad_group | keyword | ad. keyword/ad need
     parent_id = ad group id; ad_group needs parent_id = campaign id.
@@ -93,7 +93,7 @@ def pause_entity(entity_type: str, entity_id: int, parent_id: int | None = None)
     return _flip(entity_type, entity_id, parent_id, "Paused")
 
 
-@mcp.tool()
+@account_tool()
 def enable_entity(entity_type: str, entity_id: int, parent_id: int | None = None) -> dict:
     """Draft an enable (Status=Active). Same shape as pause_entity.
 

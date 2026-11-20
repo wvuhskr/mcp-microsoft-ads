@@ -1,5 +1,5 @@
 from .. import client, rails, verify
-from ..app import mcp
+from ..accounts import account_tool
 
 
 def _fetch_ad_group(ad_group_id: int, campaign_id: int):
@@ -13,7 +13,7 @@ def _fetch_ad_group(ad_group_id: int, campaign_id: int):
     return ags[0]
 
 
-@mcp.tool()
+@account_tool()
 def update_ad_group(ad_group_id: int, campaign_id: int, status: str | None = None,
                     cpc_bid: float | None = None, target_cpa: float | None = None) -> dict:
     """Draft an ad-group update. target_cpa sets an explicit MaxConversions tCPA on the
