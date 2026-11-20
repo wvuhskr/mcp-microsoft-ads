@@ -1,7 +1,7 @@
 """Ad-schedule REPLACE. Google's MCP shipped append-only and hit
 AD_SCHEDULE_TIME_INTERVALS_OVERLAP — delete existing DayTime criterions first, always."""
 from .. import client, rails, verify
-from ..app import mcp
+from ..accounts import account_tool
 
 DAYS = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
 
@@ -13,7 +13,7 @@ def _existing_daytime_ids(svc, campaign_id: int) -> list[int]:
     return [c.Id for c in rows]
 
 
-@mcp.tool()
+@account_tool()
 def set_campaign_schedule(campaign_id: int, week: list[dict]) -> dict:
     """REPLACE a campaign's ad schedule. week = 7 dicts {day, from_hour, to_hour}
     (0-23 hour clock; to_hour is the hour service stops, e.g. to_hour=22 serves until

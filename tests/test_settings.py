@@ -37,6 +37,7 @@ def test_missing_file_gives_defaults(tmp_path):
         "advertiser_domain": "",
         "keyword_research": _DEFAULT_KEYWORD_RESEARCH,
         "require_pmax_target_cpa": True,
+        "accounts": {},
     }
 
 
@@ -189,6 +190,7 @@ require_pmax_target_cpa: false
             "network": "OwnedAndOperatedOnly",
         },
         "require_pmax_target_cpa": False,
+        "accounts": {},
     }
 
 

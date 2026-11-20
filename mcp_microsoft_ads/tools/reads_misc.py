@@ -1,5 +1,5 @@
 from .. import client
-from ..app import mcp
+from ..accounts import account_tool
 from ..util import suds_to_dict
 from .entities import ALL_AD_TYPES
 
@@ -23,7 +23,7 @@ def _extensions_by_ids(svc, id_list: list[int]) -> list:
     return out
 
 
-@mcp.tool()
+@account_tool()
 def list_extensions(campaign_id: int | None = None) -> dict:
     """Ad extensions. campaign_id=None: full account library (sitelinks, callouts, structured
     snippets...). campaign_id set: only extensions associated with that campaign."""
@@ -57,7 +57,7 @@ def list_extensions(campaign_id: int | None = None) -> dict:
     return {"extensions": [suds_to_dict(e) for e in _extensions_by_ids(svc, id_list)]}
 
 
-@mcp.tool()
+@account_tool()
 def get_conversion_actions() -> dict:
     """Conversion goals (nil ids returns all goals of the given types)."""
     svc = client.svc("CampaignManagementService")
@@ -66,7 +66,7 @@ def get_conversion_actions() -> dict:
     return {"goals": [suds_to_dict(g) for g in goals if g is not None]}
 
 
-@mcp.tool()
+@account_tool()
 def get_policy_issues(ad_group_id: int) -> dict:
     """Disapproved ads + keywords in an ad group (editorial review failures)."""
     svc = client.svc("CampaignManagementService")

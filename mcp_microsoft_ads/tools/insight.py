@@ -34,7 +34,7 @@ by prior sessions):
   as an optional pass-through param rather than the brief's zero-arg signature.
 """
 from .. import client, rails, settings
-from ..app import mcp
+from ..accounts import account_tool
 from ..util import suds_to_dict
 
 
@@ -56,7 +56,7 @@ def _network_criterion(svc):
     return c
 
 
-@mcp.tool()
+@account_tool()
 def discover_keywords(seed_keywords: list[str] | None = None, url: str | None = None) -> dict:
     """Keyword ideas from seed keywords and/or a landing-page URL (Ad Insight
     GetKeywordIdeas). Scoped to the location/language/network configured via advertiser
@@ -100,7 +100,7 @@ def discover_keywords(seed_keywords: list[str] | None = None, url: str | None = 
                             "scope": f"location_id={kr['location_id']}, {kr['language']}, {kr['network']}"}}
 
 
-@mcp.tool()
+@account_tool()
 def get_keyword_forecasts(keywords: list[str], match_type: str = "Exact",
                           max_cpc: float | None = None) -> dict:
     """Traffic estimates (clicks/impressions/CPC/cost) for candidate keywords at a
@@ -144,7 +144,7 @@ def get_keyword_forecasts(keywords: list[str], match_type: str = "Exact",
                             "max_cpc": bid}}
 
 
-@mcp.tool()
+@account_tool()
 def list_recommendations(recommendation_type: str | None = None, campaign_id: int | None = None,
                          ad_group_id: int | None = None) -> dict:
     """Account recommendations (MS Ad Insight GetRecommendations). recommendation_type
@@ -179,7 +179,7 @@ def _rec_action(tool: str, recommendation_id: str, entity_type: str, op_name: st
     return rails.create_draft(tool, preview, apply)
 
 
-@mcp.tool()
+@account_tool()
 def apply_recommendation(recommendation_id: str) -> dict:
     """Draft applying an MS recommendation (mutates the account — rails apply).
 
@@ -194,7 +194,7 @@ def apply_recommendation(recommendation_id: str) -> dict:
         warning="applies a Microsoft-decided change; rails budget/bid caps cannot bound what this applies")
 
 
-@mcp.tool()
+@account_tool()
 def dismiss_recommendation(recommendation_id: str) -> dict:
     """Draft dismissing an MS recommendation.
 

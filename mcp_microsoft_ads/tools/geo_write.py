@@ -5,10 +5,10 @@ CampaignCriterionType enum also lists a standalone "Location" flag, but per the
 binding deviation for this task — and matching schedule.py's own Add-side usage —
 "Targets" is what Add/DeleteCampaignCriterions expects for location criterions)."""
 from .. import client, rails
-from ..app import mcp
+from ..accounts import account_tool
 
 
-@mcp.tool()
+@account_tool()
 def exclude_geo_target(campaign_id: int, location_id: int) -> dict:
     """Draft a location EXCLUSION on a campaign. location_id from search_geo_targets.
 
@@ -34,7 +34,7 @@ def exclude_geo_target(campaign_id: int, location_id: int) -> dict:
                                "action": "EXCLUDE location"}, apply)
 
 
-@mcp.tool()
+@account_tool()
 def remove_geo_target(campaign_id: int, criterion_id: int) -> dict:
     """Draft removal of a campaign criterion by id, via DeleteCampaignCriterions with
     CriterionType="Targets" — the Targets group covers Location, DayTime, Radius, and

@@ -8,7 +8,7 @@ import stat
 from PIL import Image, UnidentifiedImageError
 
 from .. import client, rails
-from ..app import mcp
+from ..accounts import account_tool
 
 # Media.MediaType is an aspect-ratio label, NOT a media kind (Media.Type covers that,
 # always "Image" here) — live-observed values in this account's media library
@@ -64,7 +64,7 @@ def _media_ids(resp) -> list[int]:
     return client.long_ids(resp)
 
 
-@mcp.tool()
+@account_tool()
 def upload_image_asset(file_path: str, media_type: str) -> dict:
     """Draft an image upload to the account media library (for image extensions /
     PMax asset groups). Returns media id on apply. Valid PNG/JPEG only, at most

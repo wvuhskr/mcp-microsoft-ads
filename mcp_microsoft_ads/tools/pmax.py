@@ -25,7 +25,7 @@ WSDL probe findings (Session 7, campaignmanagement_service.xml):
   same way (attribute `.long`, single-item-or-list).
 """
 from .. import client, rails, settings
-from ..app import mcp
+from ..accounts import account_tool
 
 STRATEGY_TYPES = {"MaxConversions", "MaxClicks", "TargetImpressionShare"}
 
@@ -112,7 +112,7 @@ def _image_asset_links(svc, media_ids):
     return arr
 
 
-@mcp.tool()
+@account_tool()
 def create_pmax_campaign(name: str, daily_budget: float, final_url: str,
                          headlines: list[str], long_headlines: list[str], descriptions: list[str],
                          business_name: str, image_media_ids: list[int],
@@ -226,7 +226,7 @@ def create_pmax_campaign(name: str, daily_budget: float, final_url: str,
                                "images": len(image_media_ids)}, apply, validate_fn=check_policy)
 
 
-@mcp.tool()
+@account_tool()
 def create_portfolio_bidding_strategy(name: str, strategy_type: str,
                                       target_cpa: float | None = None) -> dict:
     """Draft a portfolio bid strategy (account library, shared across campaigns).

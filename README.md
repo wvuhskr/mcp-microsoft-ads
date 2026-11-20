@@ -11,7 +11,7 @@ English and, if you choose to allow it, have the assistant make changes for you.
 starts read-only. Changes are something you switch on, and every change is previewed
 before it happens.
 
-48 tools cover reporting, keyword research, and campaign, ad group, keyword,
+51 tools cover reporting, keyword research, and campaign, ad group, keyword,
 negative-keyword, location, ad-schedule, extension, image, audience, and
 conversion-goal management.
 
@@ -69,6 +69,7 @@ what is possible.
 | Tool | What it does |
 |---|---|
 | `health_check`, `list_accounts`, `get_account_info` | Confirm the connection and which account you are in |
+| `find_accounts`, `use_account`, `current_account` | Agencies: find a client account by name, pick the one reports use, and see which accounts can be changed |
 | `get_campaign_performance`, `get_ad_performance`, `get_keyword_performance` | Ready-made performance reports for the last 7, 14 or 30 days |
 | `get_search_terms` | What people actually typed before clicking |
 | `get_geo_performance` | Performance by country, state, metro area and city |
@@ -239,6 +240,58 @@ Out of the box the server can only look. To let the assistant make changes:
    `~/.mcp-microsoft-ads/advertiser.yaml` to ban words from ad copy, set your website,
    and keep the "no Performance Max campaign without a target" rule on.
 
+## Working across several client accounts (agencies)
+
+One sign-in often reaches many accounts. Out of the box this server still works in
+exactly one, the account you gave during setup, and nothing below changes that until you
+ask for it.
+
+**1. Say which accounts may be changed.** Add their account ids to the connector block as
+`MS_ADS_ACCOUNT_IDS`, separated by commas (`find_accounts` or `list_accounts` shows the
+ids). The account from setup is always on this list. Changes can never reach an account
+that is not on it.
+
+`list_accounts` always shows every account your sign-in can see, whatever the settings
+below say, because that is how you find the ids to allow.
+
+**2. Optionally, let reports reach everything.** Set `MS_ADS_READ_SCOPE` to `all` and
+look-ups and reports can reach every account your sign-in can see. Changes still only
+reach the list from step 1. Left at its default (`list`), look-ups stay on that list too.
+
+**3. Ask in plain words.** "Find the Northwind account" runs `find_accounts`. "Use
+Northwind Dental for the next few reports" runs `use_account`, and reports then run in
+that account until you pick another or clear the pick.
+
+Three rules keep clients apart:
+
+- **A pick is for reports only.** Once an account is picked, a change must name its
+  account on the request itself. A change is never sent to an account just because it was
+  picked earlier in the conversation.
+- **Every preview names the account.** As soon as more than one account is in play, each
+  previewed change shows the account's id, name and currency and the spending limits that
+  apply to it, and `confirm_and_apply` carries the change out in that account only. Every
+  answer says which account it came from.
+- **Each client can have their own rules.** In `advertiser.yaml`, an `accounts:` section
+  gives one account its own banned words (added to the shared ones), website, and
+  spending limits in that account's own currency. See
+  [advertiser.example.yaml](advertiser.example.yaml). An account with no limits of its own
+  uses `MS_ADS_MAX_DAILY_BUDGET` and `MS_ADS_MAX_CPC`, but only when it uses the same
+  currency as the account from setup. Those are plain numbers and are never converted, so
+  a change to an account in another currency is refused until that account has its own
+  limits.
+
+What has and has not been proven: the automated tests cover all of the above against a
+simulated Microsoft Ads. Against the real service, only the single-account path and the
+account search have been run; switching into a second live account has not, because the
+maintainer's sign-in reaches one account. Treat the first real use on a second account as
+a test: start with a report, check the account named in the answer, then try one small
+previewed change.
+
+One limit to know about: conversion goals and remarketing lists are built on a tracking
+(UET) tag, and tags belong to the customer that owns the account. If a client account can
+see more than one tag, this server cannot tell which is that client's, so it refuses and
+asks you to create the goal or list in the Microsoft Ads screens.
+
 ## MCP client configuration
 
 This is the block the guided setup prints. It tells your assistant how to start the
@@ -295,8 +348,10 @@ A file with no usable token at all is still refused rather than overwritten.
 | `MS_ADS_ADVERTISER_CONFIG` | `~/.mcp-microsoft-ads/advertiser.yaml` | optional advertiser settings (blocked terms, advertiser domain, keyword-research defaults) — missing file means defaults |
 | `MS_ADS_AUDIT_PATH` | `~/.mcp-microsoft-ads/audit.jsonl` | JSONL audit log location |
 | `MS_ADS_ENABLE_WRITES` | `false` | master switch for all mutating tools |
+| `MS_ADS_ACCOUNT_IDS` | (none) | extra account ids, comma-separated, that changes may reach in addition to the configured account. A garbled value refuses every call rather than guessing |
+| `MS_ADS_READ_SCOPE` | `list` | `list`: look-ups and reports stay on the configured account and `MS_ADS_ACCOUNT_IDS`. `all`: they may reach every account the sign-in can see. Never widens what can be changed |
 | `MS_ADS_ALLOW_APPLY_RECOMMENDATION` | `false` | second, separate switch required (in addition to `MS_ADS_ENABLE_WRITES`) for `apply_recommendation` specifically |
-| `MS_ADS_MAX_DAILY_BUDGET` | `1000` | daily-budget rail ceiling, **in the account's own currency** |
+| `MS_ADS_MAX_DAILY_BUDGET` | `1000` | daily-budget rail ceiling, **in the account's own currency**. An account with its own limits in `advertiser.yaml` uses those instead |
 | `MS_ADS_MAX_CPC` | `50` | bid/tCPA rail ceiling, **in the account's own currency** |
 | `MS_ADS_DRAFT_TTL_SECONDS` | `3600` | how long a draft stays valid before `confirm_and_apply` refuses it as stale |
 | `MS_ADS_DEVELOPER_TOKEN`, `MS_ADS_CLIENT_ID`, `MS_ADS_CLIENT_SECRET`, `MS_ADS_CUSTOMER_ID`, `MS_ADS_ACCOUNT_ID`, `MS_ADS_TENANT` | — | the six static credential fields; env wins over the credentials file when both are set |

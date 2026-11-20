@@ -13,8 +13,22 @@ from mcp_microsoft_ads import audit, client, settings
 
 @pytest.fixture(autouse=True)
 def fixed_account(monkeypatch):
-    monkeypatch.setattr(client, "account_id", lambda: 111222333, raising=False)
-    monkeypatch.setattr(client, "customer_id", lambda: 444555666, raising=False)
+    # Patch the CONFIGURED ids (what the credentials file would say), not account_id()
+    # itself, so a test can still make another account active with client.use().
+    monkeypatch.setattr(client, "default_account_id", lambda: 111222333)
+    monkeypatch.setattr(client, "default_customer_id", lambda: 444555666)
+
+
+@pytest.fixture(autouse=True)
+def _no_account_state(monkeypatch):
+    """No pick, no cached account list, no allowed-list or scope env leaking between
+    tests (or in from a developer's shell)."""
+    from mcp_microsoft_ads import accounts
+    monkeypatch.delenv("MS_ADS_ACCOUNT_IDS", raising=False)
+    monkeypatch.delenv("MS_ADS_READ_SCOPE", raising=False)
+    accounts.reset()
+    yield
+    accounts.reset()
 
 
 @pytest.fixture(autouse=True)

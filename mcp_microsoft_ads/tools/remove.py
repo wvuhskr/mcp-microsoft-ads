@@ -3,7 +3,7 @@ Irreversible — pause_entity is the reversible lever. Only tool that needs
 plain ArrayOflong id arrays; no business-object payload, so client.blank()
 doesn't apply here."""
 from .. import client, rails
-from ..app import mcp
+from ..accounts import account_tool
 
 ALL_TYPES = "Search Shopping DynamicSearchAds Audience PerformanceMax"
 _NEEDS_PARENT = {"ad_group": "CampaignId", "keyword": "AdGroupId", "ad": "AdGroupId"}
@@ -21,7 +21,7 @@ def _ids_array(svc, entity_id: int):
     return ids
 
 
-@mcp.tool()
+@account_tool()
 def remove_entity(entity_type: str, entity_id: int, parent_id: int | None = None) -> dict:
     """Draft PERMANENT deletion of campaign | ad_group | keyword | ad. Irreversible —
     prefer pause_entity. ad_group needs parent_id=campaign id; keyword/ad need

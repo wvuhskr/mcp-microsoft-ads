@@ -1,7 +1,7 @@
 """RSA (responsive search ad) writes. MS RSAs carry no per-ad Status on create —
 if isolation is needed, pause the AD GROUP first; the preview warns when it's Active."""
 from .. import client, rails
-from ..app import mcp
+from ..accounts import account_tool
 
 
 def _asset_link_array(svc, texts: list[str]):
@@ -18,7 +18,7 @@ def _asset_link_array(svc, texts: list[str]):
     return arr
 
 
-@mcp.tool()
+@account_tool()
 def draft_responsive_search_ad(ad_group_id: int, campaign_id: int, headlines: list[str],
                                descriptions: list[str], final_url: str,
                                path1: str | None = None, path2: str | None = None) -> dict:

@@ -6,12 +6,21 @@ yaml loads as None (empty), means all defaults. Any other shape problem is a
 loud ValueError naming the offending key and the file path -- this fails at
 server startup (see server.main), not mid-tool-call.
 
-No consumer wiring here (rails/insight/audiences/pmax reads are a later task) --
-this module only loads, validates, and exposes the settings.
+Agencies: an optional `accounts:` map keyed by account id gives one account its own
+advertiser_domain, blocked_terms (ADDED to the top-level list, never replacing it),
+require_pmax_target_cpa, keyword_research and spend limits (max_daily_budget, max_cpc).
+Top-level values are the default for every account not listed. Which account's rules
+apply is whichever account the current tool call runs in (client.account_id()); without
+an accounts section the account is never consulted.
 """
+import math
 import os
+import re
+import sys
 
 import yaml
+
+from . import client
 
 ENV_VAR = "MS_ADS_ADVERTISER_CONFIG"
 DEFAULT_PATH = "~/.mcp-microsoft-ads/advertiser.yaml"
@@ -21,8 +30,12 @@ _KEYWORD_RESEARCH_DEFAULTS = {
     "language": "English",
     "network": "OwnedAndOperatedAndSyndicatedSearch",
 }
-_ALLOWED_KEYS = frozenset({"blocked_terms", "advertiser_domain", "keyword_research",
-                           "require_pmax_target_cpa"})
+_RULE_KEYS = frozenset({"blocked_terms", "advertiser_domain", "keyword_research",
+                        "require_pmax_target_cpa"})
+_CAP_KEYS = ("max_daily_budget", "max_cpc")
+_ALLOWED_KEYS = _RULE_KEYS | {"accounts"}
+_ALLOWED_ACCOUNT_KEYS = _RULE_KEYS | set(_CAP_KEYS)
+_ACCOUNT_ID = re.compile(r"[1-9][0-9]*")
 _ALLOWED_KEYWORD_RESEARCH_KEYS = frozenset(_KEYWORD_RESEARCH_DEFAULTS)
 
 _cache: dict | None = None
@@ -34,15 +47,57 @@ def _defaults() -> dict:
         "advertiser_domain": "",
         "keyword_research": dict(_KEYWORD_RESEARCH_DEFAULTS),
         "require_pmax_target_cpa": True,
+        "accounts": {},
     }
 
 
-def _validate(raw: dict, path: str) -> dict:
+def _validate_accounts(accounts, path: str) -> dict:
+    if not isinstance(accounts, dict):
+        raise ValueError(f"{path}: 'accounts' must be a mapping of account id to rules")
+    out = {}
+    for key, rules in accounts.items():
+        aid = str(key).strip()
+        if isinstance(key, bool) or not isinstance(key, (int, str)) or not _ACCOUNT_ID.fullmatch(aid):
+            raise ValueError(
+                f"{path}: accounts key {key!r} must be a Microsoft Ads account id (digits only)")
+        if aid in out:
+            raise ValueError(f"{path}: account {aid} is listed more than once in 'accounts'")
+        where = f"{path}: accounts[{aid}]"
+        if not isinstance(rules, dict):
+            raise ValueError(f"{where} must be a mapping")
+        unknown = set(rules) - _ALLOWED_ACCOUNT_KEYS
+        if unknown:
+            raise ValueError(f"{where}: unknown key(s) {sorted(unknown, key=str)}")
+        checked = _validate({k: v for k, v in rules.items() if k in _RULE_KEYS}, where,
+                            allowed=_RULE_KEYS)
+        entry = {k: checked[k] for k in _RULE_KEYS if k in rules}
+        if "keyword_research" in rules:
+            # Keep only what this account actually set; the rest comes from the top level.
+            entry["keyword_research"] = {k: checked["keyword_research"][k]
+                                         for k in rules["keyword_research"]}
+        if any(cap in rules for cap in _CAP_KEYS) and not all(cap in rules for cap in _CAP_KEYS):
+            # A missing limit would silently come from the environment number, which is
+            # written for some other account's currency.
+            raise ValueError(
+                f"{where}: an account with its own limits must set max_daily_budget and "
+                "max_cpc together")
+        for cap in _CAP_KEYS:
+            if cap in rules:
+                value = rules[cap]
+                if (isinstance(value, bool) or not isinstance(value, (int, float))
+                        or not math.isfinite(value) or value <= 0):
+                    raise ValueError(f"{where}: '{cap}' must be a positive number")
+                entry[cap] = value
+        out[aid] = entry
+    return out
+
+
+def _validate(raw: dict, path: str, allowed=_ALLOWED_KEYS) -> dict:
     if not isinstance(raw, dict):
         raise ValueError(f"{path}: root must be a mapping, got {type(raw).__name__}")
-    unknown = set(raw) - _ALLOWED_KEYS
+    unknown = set(raw) - allowed
     if unknown:
-        raise ValueError(f"{path}: unknown key(s) {sorted(unknown)}")
+        raise ValueError(f"{path}: unknown key(s) {sorted(unknown, key=str)}")
 
     result = _defaults()
 
@@ -98,6 +153,9 @@ def _validate(raw: dict, path: str) -> dict:
             raise ValueError(f"{path}: 'require_pmax_target_cpa' must be a boolean")
         result["require_pmax_target_cpa"] = require_tcpa
 
+    if "accounts" in raw:
+        result["accounts"] = _validate_accounts(raw["accounts"], path)
+
     return result
 
 
@@ -127,28 +185,60 @@ def _reset() -> None:
     _cache = None
 
 
-def blocked_terms() -> tuple[str, ...]:
+def _rules() -> tuple[dict, dict]:
+    """(top-level defaults, overrides for the account this tool call runs in). The
+    account is only looked up when the file has an accounts section."""
     if _cache is None:
         load()
-    return tuple(_cache["blocked_terms"])
+    accounts = _cache["accounts"]
+    if not accounts:
+        return _cache, {}
+    return _cache, accounts.get(str(client.account_id()), {})
+
+
+def blocked_terms() -> tuple[str, ...]:
+    base, own = _rules()
+    return tuple(dict.fromkeys([*base["blocked_terms"], *own.get("blocked_terms", [])]))
 
 
 def advertiser_domain() -> str:
-    if _cache is None:
-        load()
-    return _cache["advertiser_domain"]
+    base, own = _rules()
+    return own.get("advertiser_domain", base["advertiser_domain"])
 
 
 def keyword_research() -> dict:
-    if _cache is None:
-        load()
-    return dict(_cache["keyword_research"])
+    base, own = _rules()
+    return {**base["keyword_research"], **own.get("keyword_research", {})}
 
 
 def require_pmax_target_cpa() -> bool:
-    if _cache is None:
-        load()
-    return _cache["require_pmax_target_cpa"]
+    base, own = _rules()
+    return own.get("require_pmax_target_cpa", base["require_pmax_target_cpa"])
+
+
+def cap(name: str):
+    """This account's own limit (max_daily_budget | max_cpc), or None when it has none
+    and the environment number applies. An account with its own limits always has both
+    (enforced at load), so one is never mixed with an environment number meant for
+    another currency."""
+    return _rules()[1].get(name)
+
+
+def caps_source() -> str:
+    if any(name in _rules()[1] for name in _CAP_KEYS):
+        return f"advertiser.yaml accounts section for {client.account_id()}"
+    return "environment defaults"
+
+
+def announce_account_caps() -> None:
+    """Startup notice on stderr (stdout is the MCP channel): which accounts carry their
+    own spend limits. Those REPLACE the environment limits for that account and may be
+    higher, since they are in the account's own currency."""
+    for aid, own in sorted((_cache or {}).get("accounts", {}).items()):
+        caps = ", ".join(f"{name}={own[name]}" for name in _CAP_KEYS if name in own)
+        if caps:
+            print(f"mcp-microsoft-ads: account {aid} uses its own spend limits ({caps}); "
+                  "these replace the environment limits for that account.", file=sys.stderr)
 
 
 def config_path(path: str | None = None) -> str:

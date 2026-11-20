@@ -6,7 +6,7 @@ import time
 import requests
 
 from .. import client
-from ..app import mcp
+from ..accounts import account_tool
 
 CACHE = os.path.expanduser("~/.mcp-microsoft-ads/geolocations.csv")
 MAX_AGE_S = 30 * 86400
@@ -39,7 +39,7 @@ def _ensure_cache() -> str:
     return raw
 
 
-@mcp.tool()
+@account_tool()
 def search_geo_targets(query: str) -> dict:
     """Search targetable/excludable locations by name (MS ships a file, not a query API;
     cached locally 30 days). Returns location ids for geo write tools."""

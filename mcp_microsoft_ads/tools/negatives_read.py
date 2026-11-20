@@ -1,9 +1,9 @@
 from .. import client
-from ..app import mcp
+from ..accounts import account_tool
 from ..util import suds_to_dict
 
 
-@mcp.tool()
+@account_tool()
 def get_negative_keywords(campaign_id: int | None = None) -> dict:
     """Campaign-level negatives + ALL shared negative keyword lists (with items and
     campaign associations). Always call before recommending/adding negatives."""

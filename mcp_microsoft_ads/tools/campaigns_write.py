@@ -1,5 +1,5 @@
 from .. import client, rails, verify
-from ..app import mcp
+from ..accounts import account_tool
 from ..util import suds_to_dict
 
 ALL_TYPES = "Search Shopping DynamicSearchAds Audience PerformanceMax"
@@ -16,7 +16,7 @@ def _fetch_campaign(campaign_id: int):
     return camps[0]
 
 
-@mcp.tool()
+@account_tool()
 def update_campaign(campaign_id: int, daily_budget: float | None = None,
                     status: str | None = None, target_cpa: float | None = None) -> dict:
     """Draft a campaign update (budget / status Active|Paused / tCPA). tCPA at campaign
@@ -93,7 +93,7 @@ def update_campaign(campaign_id: int, daily_budget: float | None = None,
                               apply, validate_fn=check_policy)
 
 
-@mcp.tool()
+@account_tool()
 def draft_campaign(name: str, campaign_type: str, daily_budget: float,
                    time_zone: str = "EasternTimeUSCanada", language: str = "English") -> dict:
     """Draft a new campaign — ALWAYS created Paused. campaign_type: Search | PerformanceMax.
